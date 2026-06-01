@@ -1,0 +1,375 @@
+from contextlib import asynccontextmanager
+import os
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from openai import AsyncOpenAI
+from pydantic import ValidationError
+from sqlmodel import desc, select
+from schemas import (
+    TripListResponse,
+    TripDetailResponse,
+    TripGenerateRequest,
+    TripGenerateResponse,
+    TripSaveRequest,
+    TripSaveResponse,
+    TripUpdateRequest,
+    TripUpdateResponse,
+    TripRegenerateRequest,
+    TripRegenerateResponse,
+)
+from dotenv import load_dotenv
+from scalar_fastapi import get_scalar_api_reference
+from database import SessionDep, create_db_tables
+import models
+
+
+load_dotenv()
+
+
+@asynccontextmanager
+async def lifespan_handler(app: FastAPI):
+    await create_db_tables()
+    yield
+
+
+app = FastAPI(
+    title="ZelonTrip API",
+    description="AI 유저 분석 여행 플래너 API",
+    version="1.0.0",
+    lifespan=lifespan_handler,
+)
+
+
+# ---------------------------------------------------------------------------
+# CORS 설정: 프론트엔드(Expo 앱 등) 연결을 위함.
+# ---------------------------------------------------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 로컬 개발 단계에서는 모두 허용
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+openai_key = os.getenv("OPENAI_API_KEY")
+
+if not openai_key:
+    print(
+        "⚠️ 경고: OPENAI_API_KEY 환경변수가 설정되지 않았습니다! .env 파일을 확인하거나 터미널에 export 해주세요."
+    )
+
+client = AsyncOpenAI(api_key=openai_key)
+
+
+##########################################
+
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to ZelonTrip"}
+
+
+@app.get("/scalar", include_in_schema=False)
+def get_scalar_docs():
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title="Scalar API",
+    )
+
+
+##########################################
+
+
+@app.post("/api/v1/trip/generate", response_model=TripGenerateResponse)
+async def generate_trip(request: TripGenerateRequest):
+
+    if not client.api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="OpenAI API Key가 설정되지 않았습니다.",
+        )
+
+    system_instruction = (
+        "당신은 전세계 최고의 여행 가이드입니다. "
+        "유저가 제공한 MBTI, 여행 취향뿐만 아니라 '동반자 유형', '이동 수단', '일정의 촘촘한 페이스'를 완벽히 분석하여 "
+        "유저의 감성을 완전히 저격하고 실전 이동 동선까지 고려한 맞춤형 여행 코스를 설계해야 합니다.\n\n"
+        "특히 아래 지침을 반드시 준수하세요:\n"
+        "- 이동수단(transportation)을 고려하여 일정과 동선을 구성해주세요.\n"
+        "- 페이스(pace)가 1에 가까울수록 하루 일정을 타이트하게(하루 5개 이상의 많은 장소), 10에 가까울수록 아주 여유롭게(하루 1~2개의 적은 장소) 구성해주세요.\n"
+        "- 동반자(companion)의 특성을 고려한 꿀팁(custom_tips)과 추천 이유(curation_reason)를 상세히 작성해주세요.\n"
+        "- 모든 장소의 위도(latitude)와 경도(longitude)는 소수점 5자리 이하까지 실제 위치 좌표를 정확하게 입력해주세요. 위경도 값이 서로 바뀌지 않도록 주의해주세요.\n"
+        "- 반드시 지정된 응답 형식(TripGenerateResponse JSON Schema)을 엄격히 준수하여 답변해주세요."
+        "- 반드시 한국어로 답변해주세요."
+    )
+
+    user_prompt = (
+        f"🎯 유저 프로필 및 요청 사항:\n"
+        f"- 목적지: {request.location}\n"
+        f"- 기간: {request.days}박 {request.days + 1}일\n"
+        f"- MBTI: {request.mbti.value}\n"
+        f"- 여행 취향: {request.bio}\n\n"
+        f"- 동반자: {request.companion.value}\n"
+        f"- 이동 수단: {request.transportation.value}\n"
+        f"- 일정 페이스: {request.pace} (1=매우 빡빡함, 10=매우 여유로움)\n"
+        f"이 유저만을 위한 감성적인 여행 테마 타이틀, 전체 개요, 맞춤형 특별 꿀팁, 그리고 일차별 상세 동선 리스트를 생성해줘."
+    )
+
+    try:
+        completion = await client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=TripGenerateResponse,
+        )
+
+        parsed_response = completion.choices[0].message.parsed
+
+        if not parsed_response:
+            raise HTTPException(
+                status_code=500, detail="AI가 올바른 포맷으로 응답하지 못했습니다."
+            )
+        return parsed_response
+
+    except ValidationError as ve:
+        raise HTTPException(
+            status_code=422, detail=f"데이터 형식이 맞지 않습니다: {str(ve)}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"서버 내부 에러: {str(e)}")
+
+
+##########################################
+
+
+# ---------------------------------------------------------------------------
+# 유저가 검토 후 '저장하기'버튼을 눌렀을 때 호출될 API
+# ---------------------------------------------------------------------------
+@app.post("/api/v1/trip/save", response_model=TripSaveResponse)
+async def save_trip(request: TripSaveRequest, db: SessionDep):
+    try:
+        trip_plan = models.Trip_Plan(
+            location=request.location,
+            title=request.title,
+            overview=request.overview,
+            custom_tips=request.custom_tips,
+            itinerary=[day.model_dump() for day in request.itinerary],
+        )
+
+        db.add(trip_plan)
+        await db.commit()
+        await db.refresh(trip_plan)
+
+        return {
+            "id": trip_plan.id,
+            "message": "성공적으로 여행 일정이 저장되었습니다! 마이페이지에서 확인하세요.",
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"DB 저장 중 에러 발생: {str(e)}")
+
+
+##########################################
+
+
+# ---------------------------------------------------------------------------
+# 모든 여행 일정 목록 조회 API 
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/trip/list", response_model=TripListResponse)
+async def get_trip_list(db: SessionDep):
+    try:
+        statement = select(models.Trip_Plan).order_by(desc(models.Trip_Plan.id))
+        result = await db.execute(statement)
+        trip_plans = result.scalars().all()
+
+        return {"trips": trip_plans}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"목록 조회 중 에러 발생: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# 특정 여행 일정 상세 조회 API 
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/trip/{trip_id}", response_model=TripDetailResponse)
+async def get_trip_detail(trip_id: int, db: SessionDep):
+    try:
+        trip_plan = await db.get(models.Trip_Plan, trip_id)
+
+        if not trip_plan:
+            raise HTTPException(
+                status_code=404,
+                detail=f"ID {trip_id}에 해당하는 여행 일정을 찾을 수 없습니다.",
+            )
+
+        return TripDetailResponse.model_validate(trip_plan)
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"상세 조회 중 에러 발생: {str(e)}")
+
+
+##########################################
+
+
+# ---------------------------------------------------------------------------
+# 여행 일정 타이틀 및 개요 부분 수정 API 
+# ---------------------------------------------------------------------------
+@app.patch("/api/v1/trip/{trip_id}", response_model=TripUpdateResponse)
+async def update_trip(trip_id: int, request: TripUpdateRequest, db: SessionDep):
+    try:
+        trip_plan = await db.get(models.Trip_Plan, trip_id)
+
+        if not trip_plan:
+            raise HTTPException(
+                status_code=404,
+                detail=f"ID {trip_id}에 해당하는 여행 일정을 찾을 수 없어 수정에 실패했습니다.",
+            )
+
+        update_data = request.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(trip_plan, key, value)
+
+        db.add(trip_plan)
+        await db.commit()
+        await db.refresh(trip_plan)
+
+        return {
+            "id": trip_plan.id,
+            "title": trip_plan.title,
+            "overview": trip_plan.overview,
+            "custom_tips": trip_plan.custom_tips,
+            "itinerary": trip_plan.itinerary,
+            "message": "여행 일정이 성공적으로 수정되었습니다!",
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"수정 중 에러 발생: {str(e)}")
+
+
+##########################################
+
+
+# ---------------------------------------------------------------------------
+# 여행 일정 삭제 API 
+# ---------------------------------------------------------------------------
+@app.delete("/api/v1/trip/{trip_id}")
+async def delete_trip(trip_id: int, db: SessionDep):
+    try:
+        trip_plan = await db.get(models.Trip_Plan, trip_id)
+
+        if not trip_plan:
+            raise HTTPException(
+                status_code=404,
+                detail=f"ID {trip_id}에 해당하는 여행 일정을 찾을 수 없어 삭제에 실패했습니다.",
+            )
+
+        await db.delete(trip_plan)
+        await db.commit()
+
+        return {"message": f"ID {trip_id}번 여행 일정이 성공적으로 삭제되었습니다."}
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"삭제 처리 중 에러 발생: {str(e)}")
+
+
+##########################################
+
+
+# ---------------------------------------------------------------------------
+#  AI 여행 일정 재생성 API
+# ---------------------------------------------------------------------------
+@app.post("/api/v1/trip/{trip_id}/regenerate", response_model=TripRegenerateResponse)
+async def regenerate_trip(trip_id: int, request: TripRegenerateRequest, db: SessionDep):
+
+    if not client.api_key:
+        raise HTTPException(
+            status_code=500, detail="OpenAI API Key가 설정되지 않았습니다."
+        )
+
+    try:
+        old_trip = await db.get(models.Trip_Plan, trip_id)
+        if not old_trip:
+            raise HTTPException(status_code=404, detail="기존 일정을 찾을 수 없습니다.")
+
+        current_days = len(old_trip.itinerary) if old_trip.itinerary else 0
+
+        system_instruction = (
+            "당신은 전세계 최고의 여행 가이드 및 일정 조율 전문가입니다.\n"
+            "유저가 제공한 '기존 여행 일정 데이터'와 '피드백'을 정확히 분석하여, "
+            "기존 일정의 전체적인 톤앤매너는 유지하되 유저의 피드백이 제대로 반영된 새로운 여행 코스를 설계해야 합니다.\n\n"
+            "특히 아래 지침을 반드시 준수하세요:\n"
+            "- 유저가 수정을 요청한 부분을 중점적으로 고치되, 전체 동선이 꼬이지 않도록 자연스럽게 연결해주세요.\n"
+            "- 모든 장소의 위도(latitude)와 경도(longitude)는 실제 위치 좌표를 정확하게 입력해주세요.\n"
+            "- 반드시 지정된 응답 형식(TripGenerateResponse JSON Schema)을 엄격히 준수하여 답변해주세요.\n"
+            "- 반드시 한국어로 답변해주세요."
+            "⚠️ [중요: 일정 수리 가이드]\n"
+            "  1. 유저가 일차(기간) 변경을 요청하는 경우, 제공된 [AI 제어 정보]의 '목표 총 일수'를 절대적으로 준수하세요.\n"
+            "  2. 제공된 목표 총 일수와 결과물인 itinerary 배열의 길이가 정확히 일치해야 합니다.\n"
+        )
+
+        user_prompt = (
+            f"⚙️ [AI 제어 정보]\n"
+            f"- 기존 일정의 총 일수: {current_days}일차 구성\n"
+            f'- 유저의 요구사항: "{request.feedback}"\n'
+            f"👉 위 요구사항을 분석하여 최종 결과물은 반드시 유저가 요구한 정확한 일수로 맞춰서 생성하세요.(만약, 기존 {current_days}일에서 하루 추가면 총 {current_days + 1}일차까지 생성해야 합니다.)\n\n"
+            f"🗺️ [기존 여행 정보]\n"
+            f"- 목적지: {old_trip.location}\n"
+            f"- 기존 타이틀: {old_trip.title}\n"
+            f"- 기존 개요: {old_trip.overview}\n"
+            f"- 기존 특별 꿀팁: {old_trip.custom_tips}\n"
+            f"- 기존 일차별 동선:\n{old_trip.itinerary}\n\n"
+            f"위 제어 정보와 기존 여행 정보를 바탕으로 피드백이 완벽히 반영된 테마 타이틀, 전체 개요, 맞춤형 꿀팁, 그리고 일차별 상세 동선 리스트를 다시 생성해주세요."
+        )
+
+        completion = await client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=TripGenerateResponse,
+        )
+
+        ai_parsed = completion.choices[0].message.parsed
+        if not ai_parsed:
+            raise HTTPException(
+                status_code=500, detail="AI가 올바른 포맷으로 응답하지 못했습니다."
+            )
+
+        old_trip.title = ai_parsed.title
+        old_trip.overview = ai_parsed.overview
+        old_trip.custom_tips = ai_parsed.custom_tips
+        old_trip.itinerary = [day.model_dump() for day in ai_parsed.itinerary]
+
+        db.add(old_trip)
+        await db.commit()
+        await db.refresh(old_trip)
+
+        return {
+            "id": old_trip.id,
+            "location": old_trip.location,
+            "title": old_trip.title,
+            "overview": old_trip.overview,
+            "custom_tips": old_trip.custom_tips,
+            "itinerary": old_trip.itinerary,
+            "message": "AI가 유저님의 피드백을 반영하여 여행 일정을 성공적으로 재생성 및 업데이트했습니다! ✨",
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"AI 재생성 중 서버 에러 발생: {str(e)}"
+        )
