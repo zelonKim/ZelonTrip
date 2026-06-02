@@ -1,6 +1,7 @@
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 
 class MBTIType(str, Enum):
@@ -174,3 +175,34 @@ class TripRegenerateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+#####################################
+
+
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+    password_confirm: str
+
+
+class UserCreateResponse(BaseModel):
+    id: int
+    username: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+##################################
+
+
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

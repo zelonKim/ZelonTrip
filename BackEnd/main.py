@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
+from datetime import timedelta
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, APIRouter, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 from pydantic import ValidationError
@@ -16,12 +17,18 @@ from schemas import (
     TripUpdateResponse,
     TripRegenerateRequest,
     TripRegenerateResponse,
+    UserLoginRequest,
+    UserLoginResponse,
+    UserCreateRequest,
+    UserCreateResponse,
 )
 from dotenv import load_dotenv
 from scalar_fastapi import get_scalar_api_reference
-from database import SessionDep, create_db_tables
+from database import create_db_tables
+from dependencies import AuthDep, SessionDep, CurrentUserDep
 import models
-
+import auth
+from fastapi.security import OAuth2PasswordRequestForm
 
 load_dotenv()
 
@@ -148,7 +155,11 @@ async def generate_trip(request: TripGenerateRequest):
 # 유저가 검토 후 '저장하기'버튼을 눌렀을 때 호출될 API
 # ---------------------------------------------------------------------------
 @app.post("/api/v1/trip/save", response_model=TripSaveResponse)
-async def save_trip(request: TripSaveRequest, db: SessionDep):
+async def save_trip(
+    request: TripSaveRequest,
+    db: SessionDep,
+    current_user: CurrentUserDep,
+):
     try:
         trip_plan = models.Trip_Plan(
             location=request.location,
@@ -156,6 +167,7 @@ async def save_trip(request: TripSaveRequest, db: SessionDep):
             overview=request.overview,
             custom_tips=request.custom_tips,
             itinerary=[day.model_dump() for day in request.itinerary],
+            user_id=current_user.id
         )
 
         db.add(trip_plan)
@@ -176,13 +188,13 @@ async def save_trip(request: TripSaveRequest, db: SessionDep):
 
 
 # ---------------------------------------------------------------------------
-# 모든 여행 일정 목록 조회 API 
+# 모든 여행 일정 목록 조회 API
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/trip/list", response_model=TripListResponse)
 async def get_trip_list(db: SessionDep):
     try:
-        statement = select(models.Trip_Plan).order_by(desc(models.Trip_Plan.id))
-        result = await db.execute(statement)
+        query = select(models.Trip_Plan).order_by(desc(models.Trip_Plan.id))
+        result = await db.execute(query)
         trip_plans = result.scalars().all()
 
         return {"trips": trip_plans}
@@ -192,7 +204,7 @@ async def get_trip_list(db: SessionDep):
 
 
 # ---------------------------------------------------------------------------
-# 특정 여행 일정 상세 조회 API 
+# 특정 여행 일정 상세 조회 API
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/trip/{trip_id}", response_model=TripDetailResponse)
 async def get_trip_detail(trip_id: int, db: SessionDep):
@@ -217,7 +229,7 @@ async def get_trip_detail(trip_id: int, db: SessionDep):
 
 
 # ---------------------------------------------------------------------------
-# 여행 일정 타이틀 및 개요 부분 수정 API 
+# 여행 일정 타이틀 및 개요 부분 수정 API
 # ---------------------------------------------------------------------------
 @app.patch("/api/v1/trip/{trip_id}", response_model=TripUpdateResponse)
 async def update_trip(trip_id: int, request: TripUpdateRequest, db: SessionDep):
@@ -258,7 +270,7 @@ async def update_trip(trip_id: int, request: TripUpdateRequest, db: SessionDep):
 
 
 # ---------------------------------------------------------------------------
-# 여행 일정 삭제 API 
+# 여행 일정 삭제 API
 # ---------------------------------------------------------------------------
 @app.delete("/api/v1/trip/{trip_id}")
 async def delete_trip(trip_id: int, db: SessionDep):
@@ -373,3 +385,128 @@ async def regenerate_trip(trip_id: int, request: TripRegenerateRequest, db: Sess
         raise HTTPException(
             status_code=500, detail=f"AI 재생성 중 서버 에러 발생: {str(e)}"
         )
+
+
+##########################################
+
+
+@app.post(
+    "/api/v1/auth/signup",
+    response_model=UserCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def signup(request: UserCreateRequest, db: SessionDep):
+
+    query = select(models.User).where(models.User.username == request.username)
+    result = await db.execute(query)
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 존재하는 아이디입니다. 다른 아이디를 사용해주세요.",
+        )
+
+    if request.password != request.password_confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비밀번호와 비밀번호 확인이 일치하지 않습니다.",
+        )
+
+    hashed_password = auth.get_hashed_password(request.password)
+
+    new_user = models.User(username=request.username, hashed_password=hashed_password)
+
+    try:
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        return new_user
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"회원가입 처리 중 서버 오류가 발생했습니다: {str(e)}",
+        )
+
+
+#########################################
+
+
+@app.post("/api/v1/auth/login", response_model=UserLoginResponse)
+async def login(
+    db: SessionDep,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+):
+
+    query = select(models.User).where(models.User.username == form_data.username)
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="아이디 혹은 비밀번호가 올바르지 않습니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = auth.generate_access_token(
+        data={"sub": user.username},
+        expiry=timedelta(hours=12),
+    )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="비활성화된 계정입니다."
+        )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+##################################
+
+
+@app.get("/api/v1/auth/me", response_model=UserCreateResponse)
+async def get_me(current_user: CurrentUserDep):
+    return current_user
+
+
+##################################
+
+
+@app.patch(
+    "/api/v1/auth/deactivate",
+    status_code=status.HTTP_200_OK,
+)
+async def account_deactivate(db: SessionDep, current_user: CurrentUserDep):
+    current_user.is_active = False
+
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {"message": "계정이 비활성화되었습니다.", "username": current_user.username}
+
+
+##################################
+
+
+@app.post(
+    "/api/v1/auth/logout",
+    status_code=status.HTTP_200_OK,
+)
+async def logout(db: SessionDep, current_user: CurrentUserDep, token: AuthDep):
+
+    query = select(models.BlacklistedToken).where(
+        models.BlacklistedToken.token == token
+    )
+    result = await db.execute(query)
+    is_exists = result.scalar_one_or_none()
+
+    if not is_exists:
+        blacklisted = models.BlacklistedToken(token=token)
+        db.add(blacklisted)
+        await db.commit()
+
+    return {"message": "성공적으로 로그아웃되었습니다. 해당 토큰은 만료되었습니다."}
