@@ -3,49 +3,50 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-
-class MBTIType(str, Enum):
-    ISTJ = "ISTJ"
-    ISFJ = "ISFJ"
-    INFJ = "INFJ"
-    INTJ = "INTJ"
-    ISTP = "ISTP"
-    ISFP = "ISFP"
-    INFP = "INFP"
-    INTP = "INTP"
-    ESTP = "ESTP"
-    ESFP = "ESFP"
-    ENFP = "ENFP"
-    ENTP = "ENTP"
-    ESTJ = "ESTJ"
-    ESFJ = "ESFJ"
-    ENFJ = "ENFJ"
-    ENTJ = "ENTJ"
-
-
-class CompanionType(str, Enum):
-    SOLO = "나홀로"
-    COUPLE = "커플"
-    FRIENDS = "친구"
-    FAMILY = "가족"
+# class MBTIType(str, Enum):
+#     ISTJ = "ISTJ"
+#     ISFJ = "ISFJ"
+#     INFJ = "INFJ"
+#     INTJ = "INTJ"
+#     ISTP = "ISTP"
+#     ISFP = "ISFP"
+#     INFP = "INFP"
+#     INTP = "INTP"
+#     ESTP = "ESTP"
+#     ESFP = "ESFP"
+#     ENFP = "ENFP"
+#     ENTP = "ENTP"
+#     ESTJ = "ESTJ"
+#     ESFJ = "ESFJ"
+#     ENFJ = "ENFJ"
+#     ENTJ = "ENTJ"
 
 
-class TransportationType(str, Enum):
-    CAR = "자동차"
-    PUBLIC = "대중교통"
-    BIKE = "자전거"
+# class CompanionType(str, Enum):
+#     SOLO = "나홀로"
+#     COUPLE = "커플"
+#     FRIENDS = "친구"
+#     FAMILY = "가족"
+
+
+# class TransportationType(str, Enum):
+#     CAR = "자동차"
+#     PUBLIC = "대중교통"
+#     BIKE = "자전거"
 
 
 class TripGenerateRequest(BaseModel):
     location: str = Field(..., description="여행지", max_length=30)
     days: int = Field(..., description="여행 기간 (숙박 일수)", ge=1, le=28)
-    bio: str = Field(..., description="유저의 여행 취향", max_length=200)
-    mbti: MBTIType = Field(..., description="유저의 MBTI 유형")
-    companion: CompanionType = Field(..., description="동반자 유형")
-    transportation: TransportationType = Field(..., description="이동 수단")
+    mbti: str = Field(..., description="MBTI 유형")
+    tripStyle: str = Field(..., description="여행 스타일", max_length=200)
+    tendency: str = Field(..., description="식당 및 숙소 성향", max_length=200)
+    asking: str = Field(..., description="특별 요청사항", max_length=200)
+    companion: str = Field(..., description="동반자 유형")
+    transportation: str = Field(..., description="이동 수단")
     pace: int = Field(
         ...,
-        description="여행의 여유로움 정도 (1=매우 빡센 일정, 10=매우 여유로운 일정)",
+        description="여행 일정 페이스 (1=매우 빡센 일정, 10=매우 여유로운 일정)",
         ge=1,
         le=10,
     )
@@ -55,17 +56,15 @@ class TripGenerateRequest(BaseModel):
 
 
 class DestinationDetail(BaseModel):
-    place_name: str = Field(..., description="추천 방문지 이름")
+    place_name: str = Field(..., description="방문지 이름")
     description: str = Field(..., description="이 장소에 대한 간략한 소개")
-    curation_reason: str = Field(
-        ..., description="이 유저 성향과 동반자 조합에 이곳을 추천하는 구체적인 이유"
-    )
+    proposed_reason: str = Field(..., description="이 장소를 권하는 이유")
     latitude: float = Field(
-        ..., description="해당 장소의 위도 (Latitude, 예: 33.54321)", ge=-90.0, le=90.0
+        ..., description="해당 장소의 위도 (Latitude)", ge=-90.0, le=90.0
     )
     longitude: float = Field(
         ...,
-        description="해당 장소의 경도 (Longitude, 예: 126.65432)",
+        description="해당 장소의 경도 (Longitude)",
         ge=-180.0,
         le=180.0,
     )
@@ -74,7 +73,7 @@ class DestinationDetail(BaseModel):
 class DailyItinerary(BaseModel):
     day: int = Field(..., description="여행 일차 (1일차, 2일차, 3일차, ...)")
     places: List[DestinationDetail] = Field(
-        ..., description="해당 일차의 추천 동선 리스트 (방문 순서대로 배열)"
+        ..., description="해당 일차의 동선 리스트 (방문 순서대로 배열)"
     )
 
 
@@ -118,6 +117,7 @@ class TripListElement(BaseModel):
     location: str
     title: str
     overview: str
+    itinerary: List[Dict[str, Any]]
 
 
 class TripListResponse(BaseModel):

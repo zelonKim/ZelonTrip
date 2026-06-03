@@ -17,7 +17,6 @@ from schemas import (
     TripUpdateResponse,
     TripRegenerateRequest,
     TripRegenerateResponse,
-    UserLoginRequest,
     UserLoginResponse,
     UserCreateRequest,
     UserCreateResponse,
@@ -88,8 +87,12 @@ def get_scalar_docs():
 ##########################################
 
 
-@app.post("/api/v1/trip/generate", response_model=TripGenerateResponse)
-async def generate_trip(request: TripGenerateRequest):
+@app.post("/api/v1/trip/generate")
+async def generate_trip(
+    request: TripGenerateRequest,
+    db: SessionDep,
+    # current_user: CurrentUserDep,
+):
 
     if not client.api_key:
         raise HTTPException(
@@ -111,15 +114,17 @@ async def generate_trip(request: TripGenerateRequest):
     )
 
     user_prompt = (
-        f"🎯 유저 프로필 및 요청 사항:\n"
+        f"유저 프로필 및 요청 사항:\n"
         f"- 목적지: {request.location}\n"
         f"- 기간: {request.days}박 {request.days + 1}일\n"
-        f"- MBTI: {request.mbti.value}\n"
-        f"- 여행 취향: {request.bio}\n\n"
-        f"- 동반자: {request.companion.value}\n"
-        f"- 이동 수단: {request.transportation.value}\n"
+        f"- MBTI: {request.mbti}\n"
+        f"- 여행 스타일: {request.tripStyle}\n\n"
+        f"- 식당 및 숙소 성향: {request.tendency}\n\n"
+        f"- 특별 요청사항: {request.asking}\n\n"
+        f"- 동반자: {request.companion}\n"
+        f"- 이동 수단: {request.transportation}\n"
         f"- 일정 페이스: {request.pace} (1=매우 빡빡함, 10=매우 여유로움)\n"
-        f"이 유저만을 위한 감성적인 여행 테마 타이틀, 전체 개요, 맞춤형 특별 꿀팁, 그리고 일차별 상세 동선 리스트를 생성해줘."
+        f"이 유저만을 위한 감성적인 여행 테마 타이틀, 여행 개요, 맞춤형 특별 꿀팁, 그리고 일차별 상세 동선 리스트를 생성해줘."
     )
 
     try:
@@ -138,36 +143,15 @@ async def generate_trip(request: TripGenerateRequest):
             raise HTTPException(
                 status_code=500, detail="AI가 올바른 포맷으로 응답하지 못했습니다."
             )
-        return parsed_response
 
-    except ValidationError as ve:
-        raise HTTPException(
-            status_code=422, detail=f"데이터 형식이 맞지 않습니다: {str(ve)}"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"서버 내부 에러: {str(e)}")
-
-
-##########################################
-
-
-# ---------------------------------------------------------------------------
-# 유저가 검토 후 '저장하기'버튼을 눌렀을 때 호출될 API
-# ---------------------------------------------------------------------------
-@app.post("/api/v1/trip/save", response_model=TripSaveResponse)
-async def save_trip(
-    request: TripSaveRequest,
-    db: SessionDep,
-    current_user: CurrentUserDep,
-):
-    try:
         trip_plan = models.Trip_Plan(
             location=request.location,
-            title=request.title,
-            overview=request.overview,
-            custom_tips=request.custom_tips,
-            itinerary=[day.model_dump() for day in request.itinerary],
-            user_id=current_user.id
+            title=parsed_response.title,
+            overview=parsed_response.overview,
+            custom_tips=parsed_response.custom_tips,
+            itinerary=[day.model_dump() for day in parsed_response.itinerary],
+            # user_id=current_user.id,  # 인증된 현재 유저 ID
+            user_id=1,
         )
 
         db.add(trip_plan)
@@ -176,12 +160,17 @@ async def save_trip(
 
         return {
             "id": trip_plan.id,
-            "message": "성공적으로 여행 일정이 저장되었습니다! 마이페이지에서 확인하세요.",
+            "message": "AI 일정 생성 및 저장이 완료되었습니다!",
+            # "data": parsed_response.model_dump(),
+            "data": parsed_response,
         }
 
-    except Exception as e:
+    except Exception as error:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"DB 저장 중 에러 발생: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"에러가 발생했습니다: {str(error)}",
+        )
 
 
 ##########################################

@@ -1,77 +1,84 @@
 import React from "react";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Link, Tabs } from "expo-router";
-import { Pressable } from "react-native";
-
-import Colors from "@/constants/Colors";
+import { Tabs } from "expo-router";
 import { useColorScheme } from "@/components/useColorScheme";
-import { useClientOnlyValue } from "@/components/useClientOnlyValue";
-import { Ionicons } from "@expo/vector-icons";
-
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>["name"];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+import { Home, CircleUser, CalendarSearch, Bot } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
+
+  const tabHeight = 45 + insets.bottom;
 
   return (
-    <Tabs // 앱 하단에 탭 네비게이션바를 생성함.
+    <Tabs
       screenOptions={{
+        tabBarShowLabel: false,
         headerShown: false,
-
         tabBarStyle: {
-          height: 100,
+          height: tabHeight,
+          paddingTop: 8,
+          borderTopWidth: 1,
+          borderTopColor: "#E5E7EB",
+          backgroundColor: "#FFFFFF",
         },
       }}
     >
-      <Tabs.Screen // 탭의 메뉴를 등록함.
-        name="index" // index.tsx파일을 해당 탭에 연결함.
-        options={{
-          title: "홈", // 해당 탭 메뉴에 표시될 텍스트를 지정함.
-
-          tabBarIcon: (
-            { focused }, // 탭바 아이콘을 렌더링함.  // 현재 선택된 탭일 경우, focused 매개변수 값으로 true가 전달됨.
-          ) => <Ionicons name={focused ? "home" : "home-outline"} size={20} />,
-        }}
-      />
-
       <Tabs.Screen
-        name="explore"
+        name="index"
         options={{
-          title: "둘러보기",
-
+          title: "홈",
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name={focused ? "telescope" : "telescope-outline"}
-              size={20}
+            <Home
+              size={25}
+              color={focused ? "#2563EB" : "#9CA3AF"}
+              strokeWidth={focused ? 2.5 : 2}
             />
           ),
         }}
       />
 
       <Tabs.Screen
-        name="search"
+        name="generate"
         options={{
-          title: "검색",
+          title: "여행 생성",
 
           tabBarIcon: ({ focused }) => (
-            <Ionicons name={focused ? "search" : "search-outline"} size={20} />
+            <Bot
+              size={30}
+              color={focused ? "#2563EB" : "#9CA3AF"}
+              strokeWidth={focused ? 2.3 : 2}
+            />
           ),
         }}
       />
 
       <Tabs.Screen
-        name="profile"
+        name="plans"
         options={{
-          title: "프로필",
+          title: "여행 계획",
 
           tabBarIcon: ({ focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={20} />
+            <CalendarSearch
+              size={25}
+              color={focused ? "#2563EB" : "#9CA3AF"}
+              strokeWidth={focused ? 2.5 : 2}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="mypage"
+        options={{
+          title: "마이페이지",
+
+          tabBarIcon: ({ focused }) => (
+            <CircleUser
+              size={25}
+              color={focused ? "#2563EB" : "#9CA3AF"}
+              strokeWidth={focused ? 2.5 : 2}
+            />
           ),
         }}
       />
