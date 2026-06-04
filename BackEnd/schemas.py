@@ -1,55 +1,47 @@
-from enum import Enum
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
+from typing import List, Dict, Any, Optional, Literal
 from datetime import datetime
-
-# class MBTIType(str, Enum):
-#     ISTJ = "ISTJ"
-#     ISFJ = "ISFJ"
-#     INFJ = "INFJ"
-#     INTJ = "INTJ"
-#     ISTP = "ISTP"
-#     ISFP = "ISFP"
-#     INFP = "INFP"
-#     INTP = "INTP"
-#     ESTP = "ESTP"
-#     ESFP = "ESFP"
-#     ENFP = "ENFP"
-#     ENTP = "ENTP"
-#     ESTJ = "ESTJ"
-#     ESFJ = "ESFJ"
-#     ENFJ = "ENFJ"
-#     ENTJ = "ENTJ"
-
-
-# class CompanionType(str, Enum):
-#     SOLO = "나홀로"
-#     COUPLE = "커플"
-#     FRIENDS = "친구"
-#     FAMILY = "가족"
-
-
-# class TransportationType(str, Enum):
-#     CAR = "자동차"
-#     PUBLIC = "대중교통"
-#     BIKE = "자전거"
+import re
 
 
 class TripGenerateRequest(BaseModel):
-    location: str = Field(..., description="여행지", max_length=30)
-    days: int = Field(..., description="여행 기간 (숙박 일수)", ge=1, le=28)
-    mbti: str = Field(..., description="MBTI 유형")
-    tripStyle: str = Field(..., description="여행 스타일", max_length=200)
-    tendency: str = Field(..., description="식당 및 숙소 성향", max_length=200)
-    asking: str = Field(..., description="특별 요청사항", max_length=200)
-    companion: str = Field(..., description="동반자 유형")
-    transportation: str = Field(..., description="이동 수단")
-    pace: int = Field(
-        ...,
-        description="여행 일정 페이스 (1=매우 빡센 일정, 10=매우 여유로운 일정)",
-        ge=1,
-        le=10,
-    )
+    location: str = Field(..., min_length=1, description="목적지")
+    days: int = Field(..., ge=0, description="여행 기간")
+
+    mbti: Literal[
+        "INFJ",
+        "INFP",
+        "ENFJ",
+        "ENFP",
+        "ISTJ",
+        "ISFJ",
+        "ESTJ",
+        "ESFJ",
+        "INTJ",
+        "INTP",
+        "ENTJ",
+        "ENTP",
+        "ISTP",
+        "ISFP",
+        "ESTP",
+        "ESFP",
+    ]
+
+    tripStyle: str = Field(..., min_length=1, description="여행 스타일")
+    tendency: str = Field(..., min_length=1, description="식당 및 숙소 성향")
+    companion: Literal["혼자", "친구와", "연인과", "가족과", "아이와", "부모님과"]
+    transportation: Literal["대중교통", "자차/렌트카", "도보", "자전거"]
+    pace: int = Field(..., ge=1, le=10, description="일정 페이스 (1~10)")
+
+    asking: str = Field("", description="나만의 특별 요청사항 (선택)")
+
+    @field_validator("location", "tripStyle", "tendency")
+    @classmethod
+    def strip_spaces(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("공백 문자열은 사용할 수 없습니다.")
+        return stripped
 
 
 ######################################
@@ -68,6 +60,7 @@ class DestinationDetail(BaseModel):
         ge=-180.0,
         le=180.0,
     )
+    address: str = Field(..., description="해당 장소의 주소지")
 
 
 class DailyItinerary(BaseModel):
@@ -181,14 +174,39 @@ class TripRegenerateResponse(BaseModel):
 
 
 class UserCreateRequest(BaseModel):
-    username: str
-    password: str
-    password_confirm: str
+    # 이메일 검증은 그대로 유지
+    username: EmailStr = Field(..., description="유저 이메일 주소")
+
+    # 💡 pattern 속성을 제거하고 일반 str 필드로 둡니다. (최소 길이 제한만 유지)
+    password: str = Field(
+        ..., min_length=8, description="영문, 숫자 조합 8자 이상 비밀번호"
+    )
+    password_confirm: str = Field(..., min_length=8)
+
+    # 💡 1. 비밀번호 복잡성 검사 (영문, 숫자 조합 8자 이상)
+    @field_validator("password")
+    @classmethod
+    def validate_password_complexity(cls, v: str) -> str:
+        # 파이썬 re 모듈은 전방탐색(?=...)을 완벽히 지원합니다.
+        password_regex = r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$"
+        if not re.match(password_regex, v):
+            raise ValueError(
+                "비밀번호는 영문과 숫자를 조합하여 8자리 이상으로 입력해주세요."
+            )
+        return v
+
+    # 💡 2. 비밀번호 일치 검사 (기존 코드 유지)
+    @field_validator("password_confirm")
+    @classmethod
+    def match_passwords(cls, v: str, info):
+        if "password" in info.data and v != info.data["password"]:
+            raise ValueError("비밀번호와 비밀번호 확인이 일치하지 않습니다.")
+        return v
 
 
 class UserCreateResponse(BaseModel):
     id: int
-    username: str
+    username: EmailStr
     is_active: bool
     created_at: datetime
 

@@ -20,9 +20,12 @@ import {
 } from "lucide-react-native";
 import { client } from "@/api/client";
 
+
+
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
 
   const fetchTripList = async () => {
     const response = await client.get("/v1/trip/list");
@@ -34,16 +37,14 @@ export default function PlansScreen() {
     queryFn: fetchTripList,
   });
 
-  // 카드 클릭 시 /gen-plan 상세 페이지로 이동하며 안전하게 인코딩해서 토스
   const handlePlanPress = (id: any) => {
-
     router.push({
       pathname: "/plan/[id]",
       params: { id },
     });
   };
 
-  // 💡 3. 로딩 상태(isPending) UX 대응
+
   if (isPending) {
     return (
       <View style={[styles.container, styles.center]}>

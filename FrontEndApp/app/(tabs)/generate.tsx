@@ -24,7 +24,7 @@ import {
 } from "lucide-react-native";
 import Slider from "@react-native-community/slider";
 import { client } from "@/api/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 
 // 옵션 데이터 상수 정의
@@ -97,13 +97,18 @@ export default function GenerateScreen() {
     }
   };
 
+  const queryClient = useQueryClient();
+
   // AI 여행 일정 생성 처리
-  const { mutate: generateTrip, isPending } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationFn: async (requestData: any) => {
       const response = await client.post("/v1/trip/generate", requestData);
       return response.data;
     },
     onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
+      queryClient.invalidateQueries({ queryKey: ["tripList"] });
+      
       Alert.alert(
         "일정 생성 완료 🎉",
         "AI가 여행 일정 생성을 완료하였습니다.",
@@ -123,12 +128,41 @@ export default function GenerateScreen() {
     },
     onError: (error) => {
       console.error("AI 일정 생성 실패!", error);
-      alert("일정 생성 중 문제가 발생했습니다. 다시 시도해 주세요.");
+      Alert.alert(
+        "에러",
+        "일정 생성 중 문제가 발생했습니다. 다시 시도해 주세요.",
+      );
     },
   });
 
+  // 💡 버튼을 눌렀을 때 실행되는 유효성 검사 로직
   const handleGenerate = () => {
-    generateTrip({
+    if (!location.trim()) {
+      Alert.alert("안내", "여행지를 입력해 주세요.");
+      return;
+    }
+    if (!mbti) {
+      Alert.alert("안내", "MBTI를 선택해 주세요.");
+      return;
+    }
+    if (!tripStyle) {
+      Alert.alert("안내", "여행 스타일을 선택해 주세요.");
+      return;
+    }
+    if (!tendency) {
+      Alert.alert("안내", "식당 및 숙소 성향을 선택해 주세요.");
+      return;
+    }
+    if (!companion) {
+      Alert.alert("안내", "누구와 함께하는지 선택해 주세요.");
+      return;
+    }
+    if (!transportation) {
+      Alert.alert("안내", "주요 이동 수단을 선택해 주세요.");
+      return;
+    }
+
+    mutate({
       location,
       days,
       mbti,
@@ -165,11 +199,11 @@ export default function GenerateScreen() {
         <View style={styles.card}>
           <View style={styles.labelRow}>
             <Plane size={20} color="#2563EB" />
-            <Text style={styles.label}>목적지</Text>
+            <Text style={styles.label}>여행지</Text>
           </View>
           <TextInput
             style={styles.input}
-            placeholder="어디로 떠나시나요? (예: 제주도, 도쿄)"
+            placeholder="어디로 떠나시나요? (예: 파리, 뉴욕, 도쿄)"
             placeholderTextColor="#9CA3AF"
             value={location}
             onChangeText={setLocation}
@@ -301,7 +335,7 @@ export default function GenerateScreen() {
           </View>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="예: 부모님 무릎이 안 좋으셔서 계단이 많은 곳은 피해 주세요. 저녁엔 조용히 바에서 칵테일 한잔하고 싶어요!"
+            placeholder="예: 숙소 주변에 치안이 좋은 곳 위주로 짜주세요!"
             placeholderTextColor="#9CA3AF"
             multiline
             numberOfLines={3}
@@ -311,7 +345,7 @@ export default function GenerateScreen() {
           />
         </View>
 
-        {/* 5. 동반자 선택 (3열 정렬 고정) */}
+        {/* 5. 동반자 선택 */}
         <View style={styles.card}>
           <View style={styles.labelRow}>
             <Users size={20} color="#2563EB" />
@@ -340,7 +374,7 @@ export default function GenerateScreen() {
           </View>
         </View>
 
-        {/* 6. 이동 수단 선택 (2열 정렬 고정) */}
+        {/* 6. 이동 수단 선택 */}
         <View style={styles.card}>
           <View style={styles.labelRow}>
             <Car size={20} color="#2563EB" />
@@ -369,14 +403,13 @@ export default function GenerateScreen() {
           </View>
         </View>
 
-        {/* 💡 7. 일정 페이스 선택 (버튼 제거 후 슬라이더로 리뉴얼) */}
+        {/* 7. 일정 페이스 선택 */}
         <View style={styles.card}>
           <View style={styles.labelRowContainer}>
             <View style={styles.labelRow}>
               <Gauge size={20} color="#2563EB" />
               <Text style={styles.label}>여행 일정 페이스</Text>
             </View>
-            {/* 현재 슬라이더의 스코어를 카드 우상단에 배지 형태로 노출 */}
             <View style={styles.scoreBadge}>
               <Text style={styles.scoreBadgeText}>{pace} / 10</Text>
             </View>
@@ -384,14 +417,14 @@ export default function GenerateScreen() {
           <View style={styles.sliderWrapper}>
             <Slider
               style={styles.slider}
-              minimumValue={0}
+              minimumValue={1}
               maximumValue={10}
-              step={1} // 1단위로 뚝뚝 끊어져서 정확히 0~10이 선택되도록 설정
+              step={1}
               value={pace}
               onValueChange={setPace}
-              minimumTrackTintColor="#2563EB" // 활성화 영역 색상 (ZelonTrip 블루)
-              maximumTrackTintColor="#E5E7EB" // 비활성화 영역 색상
-              thumbTintColor="#2563EB" // 동그라미 손잡이 색상
+              minimumTrackTintColor="#2563EB"
+              maximumTrackTintColor="#E5E7EB"
+              thumbTintColor="#2563EB"
             />
             <View style={styles.sliderLimitRow}>
               <Text style={styles.sliderLimitText}>1 (여유)</Text>
@@ -400,26 +433,25 @@ export default function GenerateScreen() {
           </View>
         </View>
 
-        {/* 일정 생성 버튼 */}
         <TouchableOpacity
+          // 💡 isPending이 true일 때 styles.disabledBtn 스타일을 덮어씌웁니다.
           style={[styles.submitBtn, isPending && styles.disabledBtn]}
           onPress={handleGenerate}
           disabled={isPending}
         >
-          <Text style={styles.submitBtnText}>
-            {isPending ? (
-              <>
-                <Text>여행 일정 생성 중 </Text>
-                <ActivityIndicator
-                  size="small"
-                  color="#FFFFFF"
-                  style={styles.spinner}
-                />
-              </>
-            ) : (
-              <Text>여행 일정 생성하기</Text>
-            )}
-          </Text>
+          {isPending ? (
+            // 💡 내부 View의 배경색은 빼고 정렬만 유지합니다.
+            <View style={styles.waiting}>
+              <Text style={styles.submitBtnText}>여행 일정 생성 중 </Text>
+              <ActivityIndicator
+                size="small"
+                color="#FFFFFF"
+                style={styles.spinner}
+              />
+            </View>
+          ) : (
+            <Text style={styles.submitBtnText}>여행 일정 생성하기 🤖</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -436,7 +468,6 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 6,
   },
-
   headerSubtitle: { fontSize: 14, color: "#6B7280", lineHeight: 20 },
   card: {
     backgroundColor: "#FFFFFF",
@@ -506,7 +537,6 @@ const styles = StyleSheet.create({
   activeChip: { backgroundColor: "#EFF6FF", borderColor: "#2563EB" },
   chipText: { fontSize: 14, color: "#4B5563", fontWeight: "500" },
   activeChipText: { color: "#2563EB", fontWeight: "600" },
-
   tagGridRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -542,7 +572,6 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     marginLeft: 6,
   },
-
   gridRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -580,8 +609,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   activeGridBtnText: { color: "#2563EB", fontWeight: "600" },
-
-  // 💡 슬라이더 전용 컴포넌트 스타일셋
   scoreBadge: {
     backgroundColor: "#2563EB",
     paddingHorizontal: 10,
@@ -598,14 +625,6 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   sliderLimitText: { fontSize: 11, color: "#9CA3AF", fontWeight: "500" },
-  paceDescBox: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 10,
-    padding: 12,
-    alignItems: "center",
-    marginTop: 14,
-  },
-  paceDescText: { fontSize: 13, color: "#4B5563", fontWeight: "600" },
   submitBtn: {
     backgroundColor: "#2563EB",
     borderRadius: 14,
@@ -620,11 +639,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   submitBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  spinner: { marginLeft: 4 },
   disabledBtn: {
     backgroundColor: "#9CA3AF",
-    shadowColor: "#9CA3AF",
+    shadowColor: "transparent",
+    elevation: 0,
   },
-  spinner: {
-    marginRight: 8,
+
+  waiting: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
 });

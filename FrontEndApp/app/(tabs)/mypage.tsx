@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Switch,
   Platform,
+  Alert,
+  ActivityIndicator, // 💡 로딩 인디케이터 추가
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -18,23 +20,58 @@ import {
   MessageSquare,
   ChevronRight,
 } from "lucide-react-native";
+import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { useQuery, useQueryClient } from "@tanstack/react-query"; // 💡 useQuery 추가
+import { client } from "@/api/client";
 
 export default function MyPageScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
 
   // 알림 설정 상태 관리
   const [isNotificationEnabled, setIsNotificationEnabled] = useState(true);
+
+  // 💡 1. 백엔드 /v1/auth/me API와 연동하는 실시간 프로필 조회 쿼리
+  const { data: userData, isPending } = useQuery({
+    queryKey: ["currentUserProfile"],
+    queryFn: async () => {
+      const response = await client.get("/v1/auth/me");
+      return response.data;
+    },
+  });
 
   // 메뉴 클릭 이벤트 핸들러
   const handleMenuPress = (menuTitle: string) => {
     console.log(`${menuTitle} 메뉴 클릭됨`);
   };
 
+  // 로그아웃 핸들러
+  const handleLogout = () => {
+    Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "로그아웃",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await SecureStore.deleteItemAsync("userToken");
+            queryClient.clear();
+            router.replace("/login");
+          } catch (error) {
+            console.error("로그아웃 처리 중 에러:", error);
+            Alert.alert("안내", "로그아웃 처리 중 오류가 발생했습니다.");
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.container}>
       {/* 헤더 영역 */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <Text style={styles.headerTitle}>마이페이지 </Text>
+        <Text style={styles.headerTitle}>마이페이지</Text>
       </View>
 
       <ScrollView
@@ -44,7 +81,7 @@ export default function MyPageScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 🔥 [1. 프로필 & 취향 배지 영역] */}
+        {/* 👣 [1. 프로필 & 취향 배지 영역] */}
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.avatarRow}>
@@ -52,8 +89,25 @@ export default function MyPageScreen() {
                 <User size={28} color="#2563EB" />
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>김성진님</Text>
-                <Text style={styles.profileEmail}>ksz1860@example.com</Text>
+                {/* 💡 2. 로딩 중일 때와 데이터가 로드되었을 때의 조건부 렌더링 */}
+                {isPending ? (
+                  <ActivityIndicator
+                    size="small"
+                    color="#2563EB"
+                    style={styles.loadingSpinner}
+                  />
+                ) : (
+                  <>
+                    <Text style={styles.profileName}>
+                      {userData?.nickname
+                        ? `${userData.nickname}님`
+                        : "닉네임"}
+                    </Text>
+                    <Text style={styles.profileEmail}>
+                      {userData?.username}
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -68,7 +122,9 @@ export default function MyPageScreen() {
             </View>
             <View style={styles.badgeRow}>
               <View style={styles.personaBadge}>
-                <Text style={styles.personaBadgeText}>⚡️ INFJ</Text>
+                <Text style={styles.personaBadgeText}>
+                  ⚡️ {userData?.mbti || "INFJ"}
+                </Text>
               </View>
               <View style={styles.personaBadge}>
                 <Text style={styles.personaBadgeText}>🚗 자차 선호</Text>
@@ -147,7 +203,7 @@ export default function MyPageScreen() {
 
         {/* 🔒 [4. 계정 관리] */}
         <View style={styles.accountManagementRow}>
-          <TouchableOpacity onPress={() => handleMenuPress("로그아웃")}>
+          <TouchableOpacity onPress={handleLogout}>
             <Text style={styles.accountText}>로그아웃</Text>
           </TouchableOpacity>
           <Text style={styles.accountDivider}>|</Text>
@@ -207,7 +263,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  profileInfo: { marginLeft: 14 },
+  profileInfo: { marginLeft: 14, justifyContent: "center" },
   profileName: {
     fontSize: 18,
     fontWeight: "700",
@@ -215,6 +271,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   profileEmail: { fontSize: 13, color: "#9CA3AF", fontWeight: "500" },
+  loadingSpinner: { alignSelf: "flex-start", marginTop: 4 }, // 💡 스피너 정렬 스타일 추가
   dividerLight: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 14 },
   badgeSection: { width: "100%" },
   badgeTitleRow: {

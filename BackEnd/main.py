@@ -11,8 +11,6 @@ from schemas import (
     TripDetailResponse,
     TripGenerateRequest,
     TripGenerateResponse,
-    TripSaveRequest,
-    TripSaveResponse,
     TripUpdateRequest,
     TripUpdateResponse,
     TripRegenerateRequest,
@@ -91,7 +89,7 @@ def get_scalar_docs():
 async def generate_trip(
     request: TripGenerateRequest,
     db: SessionDep,
-    # current_user: CurrentUserDep,
+    current_user: CurrentUserDep,
 ):
 
     if not client.api_key:
@@ -106,9 +104,10 @@ async def generate_trip(
         "유저의 감성을 완전히 저격하고 실전 이동 동선까지 고려한 맞춤형 여행 코스를 설계해야 합니다.\n\n"
         "특히 아래 지침을 반드시 준수하세요:\n"
         "- 이동수단(transportation)을 고려하여 일정과 동선을 구성해주세요.\n"
-        "- 페이스(pace)가 1에 가까울수록 하루 일정을 타이트하게(하루 5개 이상의 많은 장소), 10에 가까울수록 아주 여유롭게(하루 1~2개의 적은 장소) 구성해주세요.\n"
-        "- 동반자(companion)의 특성을 고려한 꿀팁(custom_tips)과 추천 이유(curation_reason)를 상세히 작성해주세요.\n"
-        "- 모든 장소의 위도(latitude)와 경도(longitude)는 소수점 5자리 이하까지 실제 위치 좌표를 정확하게 입력해주세요. 위경도 값이 서로 바뀌지 않도록 주의해주세요.\n"
+        "- 페이스(pace) 값이 10에 가까울수록(예: 8, 9, 10) 매우 촘촘하고 빡빡한 일정으로 판단하여 하루에 최소 5개 이상의 많은 장소를 채워야 합니다. 반대로 1에 가까울수록(예:1,2,3) 하루에 2개 이하의 적은 장소를 채워야 합니다."
+        "- 동반자(companion)의 특성을 고려한 꿀팁(custom_tips)과 추천 이유(curation_reason)를 상세히 작성하세요.\n"
+        "- 모든 장소의 위도(latitude)와 경도(longitude)는 소수점 5자리 이하까지 실제 위치 좌표를 정확하게 입력해주세요. 위경도 값이 서로 바뀌지 않도록 주의하세요.\n"
+        "- 모든 장소의 주소지(address)는 전세계 유저가 구글 맵에서 쉽게 검색하고 찾아갈 수 있도록 해당 국가/도시에 맞는 글로벌 표준 영문 주소(English Address) 혹은 공식 현지 주소로 정확하게 작성하세요.\n"
         "- 반드시 지정된 응답 형식(TripGenerateResponse JSON Schema)을 엄격히 준수하여 답변해주세요."
         "- 반드시 한국어로 답변해주세요."
     )
@@ -123,7 +122,7 @@ async def generate_trip(
         f"- 특별 요청사항: {request.asking}\n\n"
         f"- 동반자: {request.companion}\n"
         f"- 이동 수단: {request.transportation}\n"
-        f"- 일정 페이스: {request.pace} (1=매우 빡빡함, 10=매우 여유로움)\n"
+        f"- 일정 페이스: {request.pace} (1=매우 여유로움, 10=매우 빡빡함)\n"
         f"이 유저만을 위한 감성적인 여행 테마 타이틀, 여행 개요, 맞춤형 특별 꿀팁, 그리고 일차별 상세 동선 리스트를 생성해줘."
     )
 
@@ -150,8 +149,7 @@ async def generate_trip(
             overview=parsed_response.overview,
             custom_tips=parsed_response.custom_tips,
             itinerary=[day.model_dump() for day in parsed_response.itinerary],
-            # user_id=current_user.id,  # 인증된 현재 유저 ID
-            user_id=1,
+            user_id=current_user.id,
         )
 
         db.add(trip_plan)
@@ -180,9 +178,14 @@ async def generate_trip(
 # 모든 여행 일정 목록 조회 API
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/trip/list", response_model=TripListResponse)
-async def get_trip_list(db: SessionDep):
+async def get_trip_list(db: SessionDep, currentUser: CurrentUserDep):
+
     try:
-        query = select(models.Trip_Plan).order_by(desc(models.Trip_Plan.id))
+        query = (
+            select(models.Trip_Plan)
+            .where(models.Trip_Plan.user_id == currentUser.id)
+            .order_by(desc(models.Trip_Plan.id))
+        )
         result = await db.execute(query)
         trip_plans = result.scalars().all()
 
@@ -307,30 +310,29 @@ async def regenerate_trip(trip_id: int, request: TripRegenerateRequest, db: Sess
 
         system_instruction = (
             "당신은 전세계 최고의 여행 가이드 및 일정 조율 전문가입니다.\n"
-            "유저가 제공한 '기존 여행 일정 데이터'와 '피드백'을 정확히 분석하여, "
-            "기존 일정의 전체적인 톤앤매너는 유지하되 유저의 피드백이 제대로 반영된 새로운 여행 코스를 설계해야 합니다.\n\n"
+            "'기존 여행 일정 데이터'와 유저가 제공한'피드백'을 정확히 분석하여, "
+            "기존 일정의 전체적인 톤앤매너는 유지하되 유저의 피드백이 제대로 반영된 여행 코스를 설계해야 합니다.\n\n"
             "특히 아래 지침을 반드시 준수하세요:\n"
             "- 유저가 수정을 요청한 부분을 중점적으로 고치되, 전체 동선이 꼬이지 않도록 자연스럽게 연결해주세요.\n"
             "- 모든 장소의 위도(latitude)와 경도(longitude)는 실제 위치 좌표를 정확하게 입력해주세요.\n"
             "- 반드시 지정된 응답 형식(TripGenerateResponse JSON Schema)을 엄격히 준수하여 답변해주세요.\n"
             "- 반드시 한국어로 답변해주세요."
             "⚠️ [중요: 일정 수리 가이드]\n"
-            "  1. 유저가 일차(기간) 변경을 요청하는 경우, 제공된 [AI 제어 정보]의 '목표 총 일수'를 절대적으로 준수하세요.\n"
+            "  1. 유저가 일차(기간) 변경을 요청하는 경우, 제공된 '목표 총 일수'를 절대적으로 준수하세요.\n"
             "  2. 제공된 목표 총 일수와 결과물인 itinerary 배열의 길이가 정확히 일치해야 합니다.\n"
         )
 
         user_prompt = (
-            f"⚙️ [AI 제어 정보]\n"
-            f"- 기존 일정의 총 일수: {current_days}일차 구성\n"
-            f'- 유저의 요구사항: "{request.feedback}"\n'
-            f"👉 위 요구사항을 분석하여 최종 결과물은 반드시 유저가 요구한 정확한 일수로 맞춰서 생성하세요.(만약, 기존 {current_days}일에서 하루 추가면 총 {current_days + 1}일차까지 생성해야 합니다.)\n\n"
             f"🗺️ [기존 여행 정보]\n"
             f"- 목적지: {old_trip.location}\n"
             f"- 기존 타이틀: {old_trip.title}\n"
             f"- 기존 개요: {old_trip.overview}\n"
             f"- 기존 특별 꿀팁: {old_trip.custom_tips}\n"
             f"- 기존 일차별 동선:\n{old_trip.itinerary}\n\n"
-            f"위 제어 정보와 기존 여행 정보를 바탕으로 피드백이 완벽히 반영된 테마 타이틀, 전체 개요, 맞춤형 꿀팁, 그리고 일차별 상세 동선 리스트를 다시 생성해주세요."
+            f"- 기존 일정의 총 일수: {current_days}일차 구성\n"
+            f"👉 [유저의 피드백]:{request.feedback}\n"
+            f"기존 여행 정보에 유저의 피드백을 완전히 반영한 여행 테마 타이틀, 전체 개요, 맞춤형 꿀팁, 그리고 일차별 상세 동선 리스트를 다시 생성해주세요."
+            f"단, 유저의 피드백을 분석하여 최종 결과물은 반드시 유저가 요구한 정확한 일수로 맞춰서 생성하세요.(만약, 기존 {current_days}일에서 하루 추가면 총 {current_days + 1}일차까지 생성해야 합니다.)\n\n"
         )
 
         completion = await client.beta.chat.completions.parse(
@@ -393,18 +395,14 @@ async def signup(request: UserCreateRequest, db: SessionDep):
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 존재하는 아이디입니다. 다른 아이디를 사용해주세요.",
-        )
-
-    if request.password != request.password_confirm:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="비밀번호와 비밀번호 확인이 일치하지 않습니다.",
+            detail="이미 존재하는 이메일입니다. 다른 이메일을 사용해주세요.",
         )
 
     hashed_password = auth.get_hashed_password(request.password)
 
-    new_user = models.User(username=request.username, hashed_password=hashed_password)
+    new_user = models.User(
+        username=request.username, hashed_password=hashed_password, nickname=None
+    )
 
     try:
         db.add(new_user)
@@ -440,15 +438,16 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="아이디 혹은 비밀번호가 올바르지 않거나 사용할 수 없는 계정입니다.",
+        )
+
     access_token = auth.generate_access_token(
         data={"sub": user.username},
         expiry=timedelta(hours=12),
     )
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="비활성화된 계정입니다."
-        )
 
     return {"access_token": access_token, "token_type": "bearer"}
 
