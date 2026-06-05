@@ -52,7 +52,7 @@ async def get_current_user(db: SessionDep, token: AuthDep) -> models.User:
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="비활성화된 계정입니다."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="탈퇴한 계정입니다."
         )
 
     return user

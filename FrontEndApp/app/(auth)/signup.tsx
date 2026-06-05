@@ -38,7 +38,7 @@ export default function SignupScreen() {
       Alert.alert(
         "환영합니다 🤗",
         "회원가입이 완료되었습니다. 로그인해주세요.",
-        [{ text: "확인", onPress: () => router.push("/login") }],
+        [{ text: "확인", onPress: () => router.push("/(auth)/login") }],
       );
     },
     onError: (error: any) => {
@@ -95,7 +95,7 @@ export default function SignupScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.title}>반가워요! ✈️</Text>
+          <Text style={styles.title}>AI와 함께 떠나요! ✈️</Text>
           <Text style={styles.subtitle}>
             ZelonTrip과 함께 여행을 시작해볼까요?
           </Text>
@@ -152,7 +152,7 @@ export default function SignupScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => router.push("/login")}
+          onPress={() => router.push("/(auth)/login")}
           style={styles.loginLink}
           disabled={isPending}
         >

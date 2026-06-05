@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   ScrollView,
   View,
@@ -6,6 +6,9 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  ImageBackground,
 } from "react-native";
 import {
   Search,
@@ -16,17 +19,124 @@ import {
   ChevronRight,
   Star,
 } from "lucide-react-native";
+import { useQuery } from "@tanstack/react-query";
+import { client } from "@/api/client";
+import * as Location from "expo-location";
 
 export default function HomeScreen() {
+  const [displayLocation, setDisplayLocation] = useState("위치 탐색 중...");
+  const [isLocationLoading, setIsLocationLoading] = useState(true);
+
+  const [coords, setCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  const { data: userData, isPending } = useQuery({
+    queryKey: ["currentUserProfile"],
+    queryFn: async () => {
+      const response = await client.get("/v1/auth/me");
+      return response.data;
+    },
+  });
+
+  const { data: statsData, isPending: isStatsPending } = useQuery({
+    queryKey: ["userTripStats"],
+    queryFn: async () => {
+      const response = await client.get("/v1/user/stats");
+      return response.data;
+    },
+  });
+
+  const hasHistory = statsData && statsData.total_location > 0;
+
+  const { data: recommendedPlans, isPending: isRecommendPending } = useQuery({
+    queryKey: ["tripRecommend ", hasHistory, coords],
+    queryFn: async () => {
+      if (hasHistory) {
+        const response = await client.get("/v1/trip/recommend/history");
+        return response.data;
+      } else {
+        const response = await client.get("/v1/trips/recommend/nearby", {
+          params: {
+            latitude: coords?.latitude ?? 37.5665,
+            longitude: coords?.longitude ?? 126.978,
+          },
+        });
+        return response.data;
+      }
+    },
+    enabled: !isLocationLoading || hasHistory,
+  });
+
+  const getUserLocation = async () => {
+    setIsLocationLoading(true);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setDisplayLocation("서울, 대한민국");
+        setCoords({ latitude: 37.5665, longitude: 126.978 });
+        setIsLocationLoading(false);
+        Alert.alert(
+          "위치 권한 거부",
+          "현재 위치 기준 서비스를 이용하시려면 설정에서 위치 권한을 허용해 주세요.",
+        );
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+      setCoords({ latitude, longitude });
+
+      let reverseRegion = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (reverseRegion && reverseRegion.length > 0) {
+        const address = reverseRegion[0];
+        const cityName = address.city || address.region || "";
+        const districtName = address.district || "";
+        setDisplayLocation(`${cityName} ${districtName}`.trim() || "대한민국");
+      } else {
+        setDisplayLocation("위치 알 수 없음");
+      }
+    } catch (error) {
+      setDisplayLocation("서울, 대한민국");
+      setCoords({ latitude: 37.5665, longitude: 126.978 });
+    } finally {
+      setIsLocationLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getUserLocation();
+  }, []);
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 1. 상단 헤더 섹션 */}
       <View style={styles.topBar}>
         <View>
           <Text style={styles.locationLabel}>현재 위치</Text>
-          <TouchableOpacity style={styles.locationSelector}>
+          <TouchableOpacity
+            style={styles.locationSelector}
+            onPress={getUserLocation}
+            disabled={isLocationLoading}
+          >
             <MapPin size={14} color="#2563EB" />
-            <Text style={styles.locationText}>서울, 대한민국</Text>
+            {isLocationLoading ? (
+              <ActivityIndicator
+                size="small"
+                color="#2563EB"
+                style={{ marginLeft: 4 }}
+              />
+            ) : (
+              <Text style={styles.locationText}>{displayLocation}</Text>
+            )}
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.iconButton}>
@@ -37,7 +147,19 @@ export default function HomeScreen() {
 
       {/* 2. 메인 웰컴 카피 */}
       <View style={styles.welcomeSection}>
-        <Text style={styles.userName}>성진님,</Text>
+        {isPending ? (
+          <ActivityIndicator
+            size="small"
+            color="#2563EB"
+            style={styles.loadingSpinner}
+          />
+        ) : (
+          <Text style={styles.userName}>
+            {userData?.nickname
+              ? `${userData.nickname}님,`
+              : `${userData?.username?.split("@")[0]}님,`}
+          </Text>
+        )}
         <Text style={styles.welcomeTitle}>어디로 떠나고 {"\n"}싶으신가요?</Text>
       </View>
 
@@ -56,58 +178,78 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 4. AI 큐레이션 섹션 (가로 스크롤 카드) */}
+      {/* 4. AI 큐레이션 섹션 (조건부 맞춤 타이틀 적용) */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View style={styles.row}>
             <Sparkles size={20} color="#2563EB" fill="#2563EB" />
-            <Text style={styles.sectionTitle}>맞춤 여행 플랜</Text>
+            {/* 💡 유저 기록 유무에 따라 와닿는 타이틀 가공 */}
+            <Text style={styles.sectionTitle}>맞춤 여행지 추천</Text>
           </View>
           <TouchableOpacity>
             <Text style={styles.seeAll}>전체보기</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.cardList}
-        >
-          {/* 더미 카드 1 */}
-          <TouchableOpacity style={styles.card}>
-            <View style={styles.cardImagePlaceholder}>
-              <Text style={styles.cardTag}>#힐링</Text>
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>강릉 해변 카페 투어</Text>
-              <View style={styles.cardInfo}>
-                <Star size={14} color="#FBBF24" fill="#FBBF24" />
-                <Text style={styles.rating}>4.8</Text>
-                <Text style={styles.distance}>• 1.2km</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+        {isRecommendPending || isStatsPending ? (
+          <View style={styles.loadingWrapper}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text style={styles.loadingText}>
+              {userData?.nickname
+                ? `${userData.nickname}님,`
+                : `${userData?.username?.split("@")[0]}님,`}
+              을 위한 여행지 분석 중...
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.cardList}
+          >
+            {recommendedPlans && recommendedPlans.length > 0 ? (
+              recommendedPlans.map((item: any, index: number) => (
+                <TouchableOpacity key={item.id || index} style={styles.card}>
+                  <ImageBackground
+                    source={{
+                      uri:
+                        item.imageUrl ||
+                        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80",
+                    }}
+                    style={styles.cardImagePlaceholder}
+                    // 이미지 자체의 테두리를 둥글게 깎아 카드 컴포넌트와 일체감을 줍니다.
+                    // imageStyle={styles.cardImage}
+                  >
+                    <Text style={styles.cardTag}>
+                      {item.tag || `#${item.category || "여행"}`}
+                    </Text>
+                  </ImageBackground>
 
-          {/* 더미 카드 2 */}
-          <TouchableOpacity style={styles.card}>
-            <View
-              style={[
-                styles.cardImagePlaceholder,
-                { backgroundColor: "#E0F2FE" },
-              ]}
-            >
-              <Text style={styles.cardTag}>#맛집</Text>
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>망원동 숨은 맛집 정복</Text>
-              <View style={styles.cardInfo}>
-                <Star size={14} color="#FBBF24" fill="#FBBF24" />
-                <Text style={styles.rating}>4.9</Text>
-                <Text style={styles.distance}>• 0.5km</Text>
+                  <View style={styles.cardContent}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.cardInfo}>
+                      <Star size={14} color="#FBBF24" fill="#FBBF24" />
+                      <Text style={styles.rating}>{item.rating || "4.5"}</Text>
+
+                      {/* 💡 백엔드에서 내려주는 distance ("취향 일치" 또는 "X.Xkm")를 그대로 바인딩합니다 */}
+                      <Text style={styles.distance}>
+                        {` • ${item.distance}`}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>
+                  추천 가능한 여행지가 없습니다.
+                </Text>
               </View>
-            </View>
-          </TouchableOpacity>
-        </ScrollView>
+            )}
+          </ScrollView>
+        )}
       </View>
 
       {/* 5. 실시간 가이드 바로가기 배너 */}
@@ -137,7 +279,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   locationLabel: { fontSize: 12, color: "#9CA3AF", marginBottom: 2 },
-  locationSelector: { flexDirection: "row", alignItems: "center" },
+  locationSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 100,
+  },
   locationText: {
     fontSize: 14,
     fontWeight: "600",
@@ -163,8 +309,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#F3F4F6",
   },
-  welcomeSection: { paddingHorizontal: 20, marginBottom: 24 },
+  welcomeSection: { paddingHorizontal: 20, marginBottom: 24, minHeight: 64 },
   userName: { fontSize: 18, color: "#4B5563", fontWeight: "500" },
+  loadingSpinner: { alignSelf: "flex-start", marginVertical: 2 },
   welcomeTitle: {
     fontSize: 28,
     fontWeight: "800",
@@ -213,7 +360,6 @@ const styles = StyleSheet.create({
   },
   cardImagePlaceholder: {
     height: 140,
-    backgroundColor: "#EEF2FF",
     padding: 12,
     justifyContent: "flex-end",
   },
@@ -237,6 +383,21 @@ const styles = StyleSheet.create({
   cardInfo: { flexDirection: "row", alignItems: "center" },
   rating: { fontSize: 14, fontWeight: "600", color: "#1F2937", marginLeft: 4 },
   distance: { fontSize: 14, color: "#9CA3AF", marginLeft: 4 },
+  loadingWrapper: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: { marginTop: 10, color: "#6B7280", fontSize: 14 },
+  emptyCard: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 20,
+  },
+  emptyText: { color: "#9CA3AF", fontSize: 13 },
   banner: {
     marginHorizontal: 20,
     backgroundColor: "#2563EB",

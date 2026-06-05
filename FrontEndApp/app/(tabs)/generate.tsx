@@ -108,7 +108,7 @@ export default function GenerateScreen() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
       queryClient.invalidateQueries({ queryKey: ["tripList"] });
-      
+
       Alert.alert(
         "일정 생성 완료 🎉",
         "AI가 여행 일정 생성을 완료하였습니다.",
@@ -117,7 +117,7 @@ export default function GenerateScreen() {
             text: "확인하러 가기",
             onPress: () => {
               router.push({
-                pathname: "/plan/[id]",
+                pathname: "/(tabs)/plan/[id]",
                 params: { id: res.id },
               });
             },
@@ -127,7 +127,6 @@ export default function GenerateScreen() {
       );
     },
     onError: (error) => {
-      console.error("AI 일정 생성 실패!", error);
       Alert.alert(
         "에러",
         "일정 생성 중 문제가 발생했습니다. 다시 시도해 주세요.",

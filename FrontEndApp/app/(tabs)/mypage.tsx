@@ -8,7 +8,9 @@ import {
   Switch,
   Platform,
   Alert,
-  ActivityIndicator, // 💡 로딩 인디케이터 추가
+  ActivityIndicator,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -22,18 +24,19 @@ import {
 } from "lucide-react-native";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useQuery, useQueryClient } from "@tanstack/react-query"; // 💡 useQuery 추가
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/api/client";
 
 export default function MyPageScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  // 알림 설정 상태 관리
   const [isNotificationEnabled, setIsNotificationEnabled] = useState(true);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [inputNickname, setInputNickname] = useState("");
 
-  // 💡 1. 백엔드 /v1/auth/me API와 연동하는 실시간 프로필 조회 쿼리
-  const { data: userData, isPending } = useQuery({
+  // 1. 유저 프로필 조회 Query
+  const { data: userData, isPending: isUserPending } = useQuery({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
       const response = await client.get("/v1/auth/me");
@@ -41,12 +44,18 @@ export default function MyPageScreen() {
     },
   });
 
-  // 메뉴 클릭 이벤트 핸들러
+  const { data: statsData, isPending: isStatsPending } = useQuery({
+    queryKey: ["userTripStats"],
+    queryFn: async () => {
+      const response = await client.get("/v1/user/stats");
+      return response.data;
+    },
+  });
+
   const handleMenuPress = (menuTitle: string) => {
     console.log(`${menuTitle} 메뉴 클릭됨`);
   };
 
-  // 로그아웃 핸들러
   const handleLogout = () => {
     Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -57,14 +66,88 @@ export default function MyPageScreen() {
           try {
             await SecureStore.deleteItemAsync("userToken");
             queryClient.clear();
-            router.replace("/login");
+            router.replace("/(auth)/login");
           } catch (error) {
-            console.error("로그아웃 처리 중 에러:", error);
             Alert.alert("안내", "로그아웃 처리 중 오류가 발생했습니다.");
           }
         },
       },
     ]);
+  };
+
+  const handleDeactivate = () => {
+    Alert.alert(
+      "회원 탈퇴",
+      "정말 탈퇴하시겠습니까? \n 탈퇴 시 서비스 이용이 제한됩니다.",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "탈퇴하기",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await client.patch("/v1/auth/deactivate");
+              await SecureStore.deleteItemAsync("userToken");
+              queryClient.clear();
+
+              Alert.alert("안내", "그동안 서비스를 이용해 주셔서 감사합니다.", [
+                {
+                  text: "확인",
+                  onPress: () => router.replace("/(auth)/login"),
+                },
+              ]);
+            } catch (error: any) {
+              const errMsg =
+                error.response?.data?.detail || "서버 통신에 실패했습니다.";
+              Alert.alert("탈퇴 실패", errMsg);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const openNicknameModal = () => {
+    setInputNickname(userData?.nickname || "");
+    setIsModalVisible(true);
+  };
+
+  const nicknameMutation = useMutation({
+    mutationFn: async (newNickname: string) => {
+      const response = await client.patch("/v1/user/nickname", {
+        nickname: newNickname,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["currentUserProfile"], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          nickname: data.nickname,
+        };
+      });
+
+      Alert.alert("성공", "닉네임이 성공적으로 설정되었습니다.");
+      setIsModalVisible(false);
+      setInputNickname("");
+
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+    },
+    onError: (error: any) => {
+      const errMsg =
+        error.response?.data?.detail || "닉네임 저장에 실패했습니다.";
+      Alert.alert("오류", errMsg);
+    },
+  });
+
+  const handleSaveNickname = () => {
+    const trimmedNickname = inputNickname.trim();
+    if (!trimmedNickname) {
+      Alert.alert("안내", "닉네임을 입력해 주세요.");
+      return;
+    }
+    nicknameMutation.mutate(trimmedNickname);
   };
 
   return (
@@ -89,8 +172,7 @@ export default function MyPageScreen() {
                 <User size={28} color="#2563EB" />
               </View>
               <View style={styles.profileInfo}>
-                {/* 💡 2. 로딩 중일 때와 데이터가 로드되었을 때의 조건부 렌더링 */}
-                {isPending ? (
+                {isUserPending ? (
                   <ActivityIndicator
                     size="small"
                     color="#2563EB"
@@ -98,13 +180,34 @@ export default function MyPageScreen() {
                   />
                 ) : (
                   <>
-                    <Text style={styles.profileName}>
-                      {userData?.nickname
-                        ? `${userData.nickname}님`
-                        : "닉네임"}
-                    </Text>
+                    {userData?.nickname ? (
+                      <View style={styles.nicknameContainer}>
+                        <Text style={styles.profileName}>
+                          {userData.nickname}님
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.editBadge}
+                          onPress={openNicknameModal}
+                        >
+                          <Text style={styles.editBadgeText}>
+                            닉네임 수정하기
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.setNicknameButton}
+                        onPress={openNicknameModal}
+                      >
+                        <Text style={styles.setNicknameButtonText}>
+                          닉네임 만들기 ✏️
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                     <Text style={styles.profileEmail}>
-                      {userData?.username}
+                      {userData?.username?.split("@")[0]
+                        ? `${userData.username.split("@")[0]}님`
+                        : userData?.username}
                     </Text>
                   </>
                 )}
@@ -113,43 +216,72 @@ export default function MyPageScreen() {
           </View>
 
           <View style={styles.dividerLight} />
-
           {/* AI 취향 페르소나 배지 라인 */}
           <View style={styles.badgeSection}>
             <View style={styles.badgeTitleRow}>
               <Award size={16} color="#2563EB" />
-              <Text style={styles.badgeSectionTitle}>나의 여행 성향</Text>
+              <Text style={styles.badgeSectionTitle}>취득한 뱃지</Text>
             </View>
             <View style={styles.badgeRow}>
+              {/* 1. 방문 도시 수에 따른 등급 배지 */}
               <View style={styles.personaBadge}>
                 <Text style={styles.personaBadgeText}>
-                  ⚡️ {userData?.mbti || "INFJ"}
+                  {isStatsPending
+                    ? "⏳ 분석 중..."
+                    : statsData?.total_location >= 5
+                      ? "✈️ 프로 여행러"
+                      : statsData?.total_location >= 2
+                        ? "👟 중급 여행러"
+                        : "🐣 초보 여행러"}
                 </Text>
               </View>
-              <View style={styles.personaBadge}>
-                <Text style={styles.personaBadgeText}>🚗 자차 선호</Text>
-              </View>
-              <View style={styles.personaBadge}>
-                <Text style={styles.personaBadgeText}>🏃 페이스 8/10</Text>
-              </View>
+
+              {/* 2. 총 누적 일수 기반 배지 */}
+              {(statsData?.total_days ?? 0) > 0 && (
+                <View style={styles.personaBadge}>
+                  <Text style={styles.personaBadgeText}>
+                    ⏱️ 누적 {statsData?.total_days}일째 여행 중
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
 
-        {/* 👣 [2. 나의 여행 활동] */}
-        <Text style={styles.sectionTitle}>나의 여행 활동</Text>
+        <Text style={{ marginTop: 2 }}></Text>
         <View style={styles.menuGroupCard}>
           <View style={styles.statsRow}>
             <View style={styles.statsIconWrapper}>
-              <Footprints size={20} color="#4B5563" />
+              <Footprints size={24} color="#4B5563" />
             </View>
             <View style={styles.statsContent}>
-              <Text style={styles.menuText}>나의 여행 발자국 통계</Text>
-              <Text style={styles.statsSubText}>
-                지금까지 AI와 함께{" "}
-                <Text style={styles.highlightText}>3개 도시</Text>,{" "}
-                <Text style={styles.highlightText}>8박 9일</Text>을 탐방했어요!
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: "600",
+                  color: "#374151",
+                  marginBottom: 3,
+                  includeFontPadding: false,
+                }}
+              >
+                나의 여행 발자국
               </Text>
+
+              {isStatsPending ? (
+                <ActivityIndicator
+                  size="small"
+                  color="#2563EB"
+                  style={styles.statsLoadingSpinner}
+                />
+              ) : (
+                <Text style={styles.statsSubText}>
+                  지금까지 ZelonTrip과 함께{" "}
+                  <Text style={styles.highlightText}>
+                    {statsData?.total_location ?? 0}개의{"\n"} 여행지
+                  </Text>
+                  를 탐방했어요!
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -157,7 +289,7 @@ export default function MyPageScreen() {
         {/* ⚙️ [3. 앱 설정 및 지원] */}
         <Text style={styles.sectionTitle}>앱 설정 및 지원</Text>
         <View style={styles.menuGroupCard}>
-          {/* 알림 설정 (토글 스위치 형태) */}
+          {/* 알림 설정 */}
           <View style={styles.menuItem}>
             <View style={styles.menuItemLeft}>
               <Bell size={20} color="#4B5563" />
@@ -207,7 +339,7 @@ export default function MyPageScreen() {
             <Text style={styles.accountText}>로그아웃</Text>
           </TouchableOpacity>
           <Text style={styles.accountDivider}>|</Text>
-          <TouchableOpacity onPress={() => handleMenuPress("회원탈퇴")}>
+          <TouchableOpacity onPress={handleDeactivate}>
             <Text style={styles.accountText}>회원탈퇴</Text>
           </TouchableOpacity>
         </View>
@@ -215,6 +347,54 @@ export default function MyPageScreen() {
         {/* 앱 버전 정보 표시 */}
         <Text style={styles.versionText}>버전 정보 v1.0.0 (최신 버전)</Text>
       </ScrollView>
+
+      {/* 닉네임 팝업 모달 */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>닉네임 설정</Text>
+            <Text style={styles.modalSubtitle}>
+              새로운 닉네임을 입력해 주세요.
+            </Text>
+
+            <TextInput
+              style={styles.nicknameInput}
+              placeholder="닉네임 입력"
+              placeholderTextColor="#9CA3AF"
+              value={inputNickname}
+              onChangeText={setInputNickname}
+              maxLength={15}
+              autoFocus={true}
+            />
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => setIsModalVisible(false)}
+                disabled={nicknameMutation.isPending}
+              >
+                <Text style={styles.modalCancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalSaveButton]}
+                onPress={handleSaveNickname}
+                disabled={nicknameMutation.isPending}
+              >
+                {nicknameMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSaveButtonText}>저장</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -238,7 +418,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    marginBottom: 24,
+
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -263,15 +443,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  profileInfo: { marginLeft: 14, justifyContent: "center" },
+  profileInfo: { marginLeft: 14, justifyContent: "center", flex: 1 },
+  nicknameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
   profileName: {
     fontSize: 18,
     fontWeight: "700",
     color: "#111827",
-    marginBottom: 2,
+  },
+  editBadge: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 10,
+  },
+  editBadgeText: { fontSize: 11, color: "#6B7280", fontWeight: "600" },
+
+  setNicknameButton: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  setNicknameButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2563EB",
   },
   profileEmail: { fontSize: 13, color: "#9CA3AF", fontWeight: "500" },
-  loadingSpinner: { alignSelf: "flex-start", marginTop: 4 }, // 💡 스피너 정렬 스타일 추가
+  loadingSpinner: { alignSelf: "flex-start", marginTop: 4 },
   dividerLight: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 14 },
   badgeSection: { width: "100%" },
   badgeTitleRow: {
@@ -285,7 +493,7 @@ const styles = StyleSheet.create({
     color: "#2563EB",
     marginLeft: 6,
   },
-  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   personaBadge: {
     backgroundColor: "#EFF6FF",
     paddingHorizontal: 12,
@@ -301,7 +509,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  // 섹션 타이틀 공통
   sectionTitle: {
     fontSize: 14,
     fontWeight: "600",
@@ -310,7 +517,6 @@ const styles = StyleSheet.create({
     paddingLeft: 2,
   },
 
-  // 메뉴 그룹 박스 (공통 카드화)
   menuGroupCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
@@ -329,7 +535,6 @@ const styles = StyleSheet.create({
     }),
   },
 
-  // 2. 여행 활동 특정 스타일
   statsRow: { flexDirection: "row", alignItems: "center", paddingVertical: 16 },
   statsIconWrapper: { marginRight: 12 },
   statsContent: { flex: 1 },
@@ -339,9 +544,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
+  statsLoadingSpinner: { alignSelf: "flex-start", marginTop: 6 }, // 💡 통계용 로딩 스피너 스타일 추가
   highlightText: { color: "#2563EB", fontWeight: "600" },
 
-  // 3. 메뉴 아이템 레이아웃
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -358,13 +563,12 @@ const styles = StyleSheet.create({
   },
   dividerMenu: { height: 1, backgroundColor: "#E5E7EB" },
 
-  // 4. 계정 관리 링크 영역
   accountManagementRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 8,
+    marginBottom: 10,
   },
   accountText: { fontSize: 13, color: "#9CA3AF", fontWeight: "500" },
   accountDivider: { fontSize: 12, color: "#E5E7EB", marginHorizontal: 12 },
@@ -375,4 +579,58 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 4,
   },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "85%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: { elevation: 5 },
+    }),
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 6,
+  },
+  modalSubtitle: { fontSize: 13, color: "#6B7280", marginBottom: 16 },
+  nicknameInput: {
+    width: "100%",
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: "#111827",
+    marginBottom: 20,
+    backgroundColor: "#F9FAFB",
+  },
+  modalButtonRow: { flexDirection: "row", gap: 10, width: "100%" },
+  modalButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCancelButton: { backgroundColor: "#F3F4F6" },
+  modalCancelButtonText: { color: "#4B5563", fontSize: 14, fontWeight: "600" },
+  modalSaveButton: { backgroundColor: "#2563EB" },
+  modalSaveButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
 });

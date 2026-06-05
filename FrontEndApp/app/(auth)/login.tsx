@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useMutation } from "@tanstack/react-query";
 import { client } from "@/api/client";
+import { useAuth } from "../_layout";
 
 interface LoginCredentials {
   email: string;
@@ -36,6 +37,8 @@ const loginApi = async (credentials: LoginCredentials) => {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { checkAuthStatus } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -46,15 +49,17 @@ export default function LoginScreen() {
 
       if (access_token) {
         await SecureStore.setItemAsync("userToken", access_token);
+
+        await checkAuthStatus();
+
         router.replace("/(tabs)");
       } else {
         Alert.alert("안내", "토큰을 받아오지 못했습니다.");
       }
     },
     onError: (error: any) => {
-      console.error("로그인 에러:", error);
       const errorMsg =
-        error.response?.data?.detail || "이메일 또는 비밀번호를 확인해주세요.";
+        error.response?.data?.detail || "로그인 중 에러가 발생했습니다.";
       Alert.alert("안내", errorMsg);
     },
   });
@@ -90,7 +95,7 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            editable={!isPending} // 💡 로딩 중 입력 잠금
+            editable={!isPending}
           />
 
           <Text style={styles.label}>비밀번호</Text>
@@ -101,11 +106,10 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
-            editable={!isPending} // 💡 로딩 중 입력 잠금
+            editable={!isPending}
           />
         </View>
 
-        {/* 💡 3. isPending 상태를 활용한 스타일 및 스피너 가드 처리 */}
         <TouchableOpacity
           style={[styles.loginBtn, isPending && styles.disabledBtn]}
           onPress={handleLogin}
@@ -122,7 +126,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => router.push("/signup")}
+          onPress={() => router.push("/(auth)/signup")}
           style={styles.signupLink}
           disabled={isPending}
         >

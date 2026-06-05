@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON, TIMESTAMP
 from pydantic import EmailStr
@@ -11,7 +11,11 @@ class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True, index=True)
     username: EmailStr = Field(unique=True, index=True, nullable=False)
     hashed_password: str = Field(nullable=False)
-    nickname: str = Field(unique=True, index=True, nullable=True)
+    nickname: str = Field(
+        default="",
+        unique=True,
+        index=True,
+    )
     is_active: bool = Field(default=True)
 
     created_at: datetime = Field(
@@ -23,7 +27,6 @@ class User(SQLModel, table=True):
     )
 
     trip_plans: List["Trip_Plan"] = Relationship(back_populates="user")
-
 
 
 class Trip_Plan(SQLModel, table=True):
@@ -60,3 +63,5 @@ class BlacklistedToken(SQLModel, table=True):
             default=lambda: datetime.now(timezone.utc),
         )
     )
+
+

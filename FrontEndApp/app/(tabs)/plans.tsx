@@ -39,7 +39,7 @@ export default function PlansScreen() {
 
   const handlePlanPress = (id: any) => {
     router.push({
-      pathname: "/plan/[id]",
+      pathname: "/(tabs)/plan/[id]",
       params: { id },
     });
   };

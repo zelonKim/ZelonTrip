@@ -49,7 +49,7 @@ const regenerateTripApi = async ({
 
 const dayColors = ["#2563EB", "#F59E0B", "#10B981", "#8B5CF6", "#EF4444"];
 
-// 💡 1. 구글 맵 앱 또는 웹 브라우저 경로 연동을 위한 범용 유틸 함수 추가
+
 const openGoogleMapsDirection = async (
   startLat: number | null,
   startLng: number | null,
@@ -59,7 +59,7 @@ const openGoogleMapsDirection = async (
   const origin = startLat && startLng ? `${startLat},${startLng}` : "";
   const destination = `${destLat},${destLng}`;
 
-  // 글로벌 세계 여행에 가장 최적화된 대중교통(transit) 모드 기반 범용 링크
+
   const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=transit`;
 
   try {
@@ -70,7 +70,6 @@ const openGoogleMapsDirection = async (
       Alert.alert("안내", "구글 맵 링크를 열 수 없습니다.");
     }
   } catch (error) {
-    console.error("구글 맵 연동 실패:", error);
     Alert.alert("안내", "지도 앱이나 브라우저를 열 수 없습니다.");
   }
 };
@@ -109,7 +108,7 @@ export default function GeneratedPlanScreen() {
         "AI가 피드백을 반영하여 일정을 보완하였습니다! ",
       );
       router.push({
-        pathname: "/plan/[id]",
+        pathname: "/(tabs)/plan/[id]",
         params: { id },
       });
     },

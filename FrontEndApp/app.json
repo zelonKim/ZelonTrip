@@ -5,6 +5,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "extra": {
+      "eas": {
+        "projectId": "e8ae6fec-3263-4560-9f26-541a7e0c6495"
+      }
+    },
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -17,25 +22,22 @@
       "bundleIdentifier": "com.yourname.zelontrip"
     },
     "infoPlist": {
-      "LSApplicationQueriesSchemes": [
-        "comgooglemaps"
-      ]
+      "LSApplicationQueriesSchemes": ["comgooglemaps"],
+      "NSLocationWhenInUseUsageDescription": "현재 위치를 기반으로 맞춤 여행 플랜을 추천하기 위해서는 위치 권한이 필요합니다."
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store"
-    ],
+    "plugins": ["expo-router", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
     }

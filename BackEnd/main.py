@@ -18,6 +18,11 @@ from schemas import (
     UserLoginResponse,
     UserCreateRequest,
     UserCreateResponse,
+    NicknameUpdateRequest,
+    UserMeResponse,
+    UserStatsResponse,
+    AIRecommendationList,
+    TripRecommendResponse,
 )
 from dotenv import load_dotenv
 from scalar_fastapi import get_scalar_api_reference
@@ -26,6 +31,10 @@ from dependencies import AuthDep, SessionDep, CurrentUserDep
 import models
 import auth
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
+from typing import List
+import httpx
+
 
 load_dotenv()
 
@@ -199,7 +208,7 @@ async def get_trip_list(db: SessionDep, currentUser: CurrentUserDep):
 # 특정 여행 일정 상세 조회 API
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/trip/{trip_id}", response_model=TripDetailResponse)
-async def get_trip_detail(trip_id: int, db: SessionDep):
+async def get_trip_detail(trip_id: int, db: SessionDep, currentUser: CurrentUserDep):
     try:
         trip_plan = await db.get(models.Trip_Plan, trip_id)
 
@@ -224,7 +233,12 @@ async def get_trip_detail(trip_id: int, db: SessionDep):
 # 여행 일정 타이틀 및 개요 부분 수정 API
 # ---------------------------------------------------------------------------
 @app.patch("/api/v1/trip/{trip_id}", response_model=TripUpdateResponse)
-async def update_trip(trip_id: int, request: TripUpdateRequest, db: SessionDep):
+async def update_trip(
+    trip_id: int,
+    request: TripUpdateRequest,
+    db: SessionDep,
+    currentUser: CurrentUserDep,
+):
     try:
         trip_plan = await db.get(models.Trip_Plan, trip_id)
 
@@ -265,7 +279,7 @@ async def update_trip(trip_id: int, request: TripUpdateRequest, db: SessionDep):
 # 여행 일정 삭제 API
 # ---------------------------------------------------------------------------
 @app.delete("/api/v1/trip/{trip_id}")
-async def delete_trip(trip_id: int, db: SessionDep):
+async def delete_trip(trip_id: int, db: SessionDep, currentUser: CurrentUserDep):
     try:
         trip_plan = await db.get(models.Trip_Plan, trip_id)
 
@@ -294,7 +308,12 @@ async def delete_trip(trip_id: int, db: SessionDep):
 #  AI 여행 일정 재생성 API
 # ---------------------------------------------------------------------------
 @app.post("/api/v1/trip/{trip_id}/regenerate", response_model=TripRegenerateResponse)
-async def regenerate_trip(trip_id: int, request: TripRegenerateRequest, db: SessionDep):
+async def regenerate_trip(
+    trip_id: int,
+    request: TripRegenerateRequest,
+    db: SessionDep,
+    currentUser: CurrentUserDep,
+):
 
     if not client.api_key:
         raise HTTPException(
@@ -426,7 +445,6 @@ async def login(
     db: SessionDep,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-
     query = select(models.User).where(models.User.username == form_data.username)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -441,12 +459,12 @@ async def login(
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="아이디 혹은 비밀번호가 올바르지 않거나 사용할 수 없는 계정입니다.",
+            detail="탈퇴한 계정입니다.",
         )
 
     access_token = auth.generate_access_token(
         data={"sub": user.username},
-        expiry=timedelta(hours=12),
+        expiry=timedelta(days=1),
     )
 
     return {"access_token": access_token, "token_type": "bearer"}
@@ -455,7 +473,7 @@ async def login(
 ##################################
 
 
-@app.get("/api/v1/auth/me", response_model=UserCreateResponse)
+@app.get("/api/v1/auth/me", response_model=UserMeResponse)
 async def get_me(current_user: CurrentUserDep):
     return current_user
 
@@ -498,3 +516,182 @@ async def logout(db: SessionDep, current_user: CurrentUserDep, token: AuthDep):
         await db.commit()
 
     return {"message": "성공적으로 로그아웃되었습니다. 해당 토큰은 만료되었습니다."}
+
+
+##################################
+
+
+@app.patch("/api/v1/user/nickname", status_code=status.HTTP_200_OK)
+async def update_nickname(
+    request: NicknameUpdateRequest,
+    db: SessionDep,
+    current_user: CurrentUserDep,
+):
+
+    query = select(models.User).where(models.User.nickname == request.nickname)
+    result = await db.execute(query)
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 사용 중인 닉네임입니다.",
+        )
+
+    current_user.nickname = request.nickname
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {
+        "message": "닉네임이 성공적으로 설정되었습니다.",
+        "nickname": current_user.nickname,
+    }
+
+
+##################################
+
+
+@app.get("/api/v1/user/stats", response_model=UserStatsResponse)
+async def get_user_trip_stats(db: SessionDep, current_user: CurrentUserDep):
+
+    location_query = select(func.count(func.distinct(models.Trip_Plan.location))).where(
+        models.Trip_Plan.user_id == current_user.id
+    )
+
+    location_result = await db.execute(location_query)
+    total_location = location_result.scalar() or 0
+
+    plans_query = select(models.Trip_Plan.itinerary).where(
+        models.Trip_Plan.user_id == current_user.id
+    )
+    plans_result = await db.execute(plans_query)
+    user_plans = plans_result.scalars().all()
+
+    total_days = 0
+    for itinerary_list in user_plans:
+        if itinerary_list and isinstance(itinerary_list, list):
+            total_days += len(itinerary_list)
+
+    return UserStatsResponse(total_location=total_location, total_days=total_days)
+
+
+#################################
+
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+
+@app.get("/api/v1/trip/recommend/history", response_model=List[TripRecommendResponse])
+async def get_ai_history_recommendations(db: SessionDep, currentUser: CurrentUserDep):
+    try:
+        query = (
+            select(models.Trip_Plan)
+            .where(models.Trip_Plan.user_id == currentUser.id)
+            .order_by(desc(models.Trip_Plan.id))
+        )
+        result = await db.execute(query)
+        trip_plans = result.scalars().all()
+
+        if not trip_plans:
+            return []
+
+        user_locations = list(
+            set([plan.location for plan in trip_plans if plan.location])
+        )
+        location_history = ", ".join(user_locations)
+
+        system_prompt = (
+            "당신은 대한민국 최고의 AI 여행 큐레이터입니다. "
+            "지금까지 유저가 다녀온 여행지 목록을 기반으로, 유저의 취향과 성향을 분석하여 "
+            "가장 만족스러워할 만한 새로운 여행지를 엄선하여 최소 5군데를 추천해 주세요."
+        )
+
+        user_prompt = (
+            f"유저가 다녀온 여행지 목록: [{location_history}]\n"
+            f"위 장소들과 유사한 감성, 테마, 혹은 연계 매력이 있는 새로운 추천 여행지 5곳을 포맷에 맞춰 제안해줘."
+        )
+
+        response = await client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=AIRecommendationList,
+            temperature=0.7,
+        )
+
+        ai_result = response.choices[0].message.parsed
+
+        if not ai_result or not ai_result.recommendations:
+            raise HTTPException(status_code=500, detail="AI 추천 데이터 파싱 실패")
+
+        final_recommendations = []
+
+        # 💡 4. 구글 API와 통신할 비동기 HTTP 클라이언트 세션 오픈
+        async with httpx.AsyncClient() as http_client:
+            for index, item in enumerate(ai_result.recommendations):
+                search_title = item.title.strip()
+
+                dynamic_image_url = f"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"
+
+                try:
+                    search_url = (
+                        "https://maps.googleapis.com/maps/api/place/textsearch/json"
+                    )
+                    search_params = {
+                        "query": search_title,
+                        "key": GOOGLE_API_KEY,
+                        "language": "ko",
+                    }
+
+                    search_response = await http_client.get(
+                        search_url, params=search_params
+                    )
+                    search_data = search_response.json()
+
+                    if search_data.get("results") and search_data["results"][0].get(
+                        "photos"
+                    ):
+                        photo_reference = search_data["results"][0]["photos"][0][
+                            "photo_reference"
+                        ]
+
+                        dynamic_image_url = (
+                            f"https://maps.googleapis.com/maps/api/place/photo"
+                            f"?maxwidth=500"
+                            f"&photo_reference={photo_reference}"
+                            f"&key={GOOGLE_API_KEY}"
+                        )
+                        print(f"[{search_title}] 구글 실사 이미지 매칭 성공")
+
+                    else:
+                        print(
+                            f"[{search_title}] 구글 검색 결과 혹은 등록된 사진이 없음 -> 기본 이미지 대체"
+                        )
+
+                except Exception as google_err:
+                    print(
+                        f"구글 플레이스 통신 오류 ({search_title}): {str(google_err)}"
+                    )
+
+                final_recommendations.append(
+                    TripRecommendResponse(
+                        id=2000 + index,
+                        title=item.title,
+                        category=item.category,
+                        tag=item.tag,
+                        rating=item.rating,
+                        distance="취향 일치",
+                        imageUrl=dynamic_image_url,
+                    )
+                )
+
+        return final_recommendations
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI 맞춤 추천 조회 중 장애 발생: {str(e)}",
+        )

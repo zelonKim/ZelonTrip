@@ -82,6 +82,14 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="plan/[id]"
+        options={{
+          title: "상세 일정",
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
