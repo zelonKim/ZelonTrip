@@ -259,11 +259,11 @@ class UserStatsResponse(BaseModel):
 
 
 class AIRecommendedItem(BaseModel):
-    title: str = Field(description="추천 여행지 코스 이름이나 명칭")
+    title: str = Field(description="추천 여행지 명칭")
     category: str = Field(description="여행 카테고리 (예: 힐링, 맛집, 액티비티 등)")
     tag: str = Field(description="#으로 시작하는 태그 키워드 (예: #오션뷰, #감성카페)")
     rating: float = Field(description="4.5 ~ 5.0 사이의 가상 평점")
-   
+
 
 class AIRecommendationList(BaseModel):
     recommendations: List[AIRecommendedItem]
@@ -276,4 +276,33 @@ class TripRecommendResponse(BaseModel):
     tag: str
     rating: float
     distance: str = "취향 일치"
-    imageUrl: str  
+    imageUrl: str
+
+
+###############################
+
+
+class LocationAskRequest(BaseModel):
+    keyword: str = Field(
+        ...,
+        description="유저가 입력한 궁금한 여행지 (예: 런던, 파리, 뉴욕, 도쿄 등)",
+    )
+
+
+class LocationAskResponse(BaseModel):
+    keyword: str = Field(..., description="조회한 여행지 이름")
+    content: str = Field(..., description="AI가 생성한 감성적이고 알찬 여행 정보 답변")
+    imageUrl: str | None = Field(
+        description="구글 맵에서 긁어온 해당 도시의 대표 실사 이미지 URL"
+    )
+
+
+###############################
+
+
+class FeedbackCreateRequest(BaseModel):
+    content: str = Field(..., min_length=5, max_length=300, description="피드백 내용 (5자 이상 300자 이하)")
+
+class FeedbackCreateResponse(BaseModel):
+    status: str
+    message: str

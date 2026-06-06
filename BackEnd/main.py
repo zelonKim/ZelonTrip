@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta
 import os
-from fastapi import Depends, FastAPI, HTTPException, APIRouter, Response, status
+from fastapi import Depends, FastAPI, HTTPException, APIRouter, Response, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 from pydantic import ValidationError
@@ -23,6 +23,10 @@ from schemas import (
     UserStatsResponse,
     AIRecommendationList,
     TripRecommendResponse,
+    LocationAskResponse,
+    LocationAskRequest,
+    FeedbackCreateResponse,
+    FeedbackCreateRequest,
 )
 from dotenv import load_dotenv
 from scalar_fastapi import get_scalar_api_reference
@@ -73,6 +77,9 @@ if not openai_key:
     )
 
 client = AsyncOpenAI(api_key=openai_key)
+
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
 ##########################################
@@ -579,11 +586,8 @@ async def get_user_trip_stats(db: SessionDep, current_user: CurrentUserDep):
 #################################
 
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
-
 @app.get("/api/v1/trip/recommend/history", response_model=List[TripRecommendResponse])
-async def get_ai_history_recommendations(db: SessionDep, currentUser: CurrentUserDep):
+async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDep):
     try:
         query = (
             select(models.Trip_Plan)
@@ -694,4 +698,248 @@ async def get_ai_history_recommendations(db: SessionDep, currentUser: CurrentUse
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"AI 맞춤 추천 조회 중 장애 발생: {str(e)}",
+        )
+
+
+#################################
+
+
+@app.get("/api/v1/trip/recommend/nearby", response_model=List[TripRecommendResponse])
+async def get_nearby_recommendations(
+    latitude: float = Query(37.5665, description="유저의 현재 위도"),
+    longitude: float = Query(126.978, description="유저의 현재 경도"),
+):
+    try:
+        system_prompt = (
+            "당신은 행정구역(시, 군, 구)단위로 여행지를 추천해주는 AI 여행 큐레이터입니다.\n"
+            "반드시 다음 지침을 엄격히 준수하세요:\n"
+            "1. 추천 명칭(title)은 오직 '행정시 명칭' 혹은 '지역 구 단위 명칭'으로만 작성해야 합니다. (예: 서울, 인천, 안양, 부천, 강화도 등)\n"
+            "2. 관광 명소 이름(예: 에버랜드, 광안리 해수욕장, 수원화성)이나 광범위한 도 단위(예: 경기도, 강원도)는 절대로 'title'에 넣지 마세요.\n"
+            "3. 반드시 한국어로 답변하세요."
+        )
+
+        user_prompt = (
+            f"🎯 유저의 현재 위치: [위도:{latitude}, 경도:{longitude}]\n\n"
+            f"이 위치를 기반으로 다음 조건에 맞는 새로운 추천 여행 도시/지역 5곳을 엄선해줘.\n"
+            f"단, 유저의 현재 위치에서 대중교통이나 차로 1시간 내외로 갈 수 있는 '근교 도시/지역'들만 엄선해줘\n"
+            f"⚠️ 중요 포맷 가이드:\n"
+            f"title 필드에는 '수원', '과천', '가평', '부산' 처럼 딱 떨어지는 도시/지역 이름만 들어가야 합니다."
+        )
+
+        response = await client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=AIRecommendationList,
+        )
+
+        ai_result = response.choices[0].message.parsed
+
+        if not ai_result or not ai_result.recommendations:
+            raise HTTPException(status_code=500, detail="AI 추천 데이터 파싱 실패")
+
+        final_recommendations = []
+
+        async with httpx.AsyncClient() as http_client:
+            for index, item in enumerate(ai_result.recommendations):
+                search_title = item.title.strip()
+
+                search_url = (
+                    "https://maps.googleapis.com/maps/api/place/textsearch/json"
+                )
+
+                search_params = {
+                    "query": search_title,
+                    "key": GOOGLE_API_KEY,
+                    "language": "ko",
+                }
+
+                search_response = await http_client.get(
+                    search_url, params=search_params
+                )
+
+                search_data = search_response.json()
+                results = search_data.get("results", [])
+
+                dynamic_image_url = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"
+
+                if results and results[0].get("photos"):
+                    photo_reference = results[0]["photos"][0]["photo_reference"]
+
+                    dynamic_image_url = (
+                        f"https://maps.googleapis.com/maps/api/place/photo"
+                        f"?maxwidth=600"
+                        f"&photo_reference={photo_reference}"
+                        f"&key={GOOGLE_API_KEY}"
+                    )
+
+                final_recommendations.append(
+                    TripRecommendResponse(
+                        id=3000 + index,
+                        title=item.title,
+                        category=item.category,
+                        tag=item.tag,
+                        rating=item.rating,
+                        distance="위치 가까움",
+                        imageUrl=dynamic_image_url,
+                    )
+                )
+
+        return final_recommendations
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"위치 기반 맞춤 도시 추천 조회 중 장애 발생: {str(e)}",
+        )
+
+
+#################################
+
+
+@app.post("/api/v1/location/ask", response_model=LocationAskResponse)
+async def ask_location_info(
+    request: LocationAskRequest, db: SessionDep, current_user: CurrentUserDep
+):
+    try:
+        search_keyword = request.keyword.strip()
+        if not search_keyword:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="궁금한 여행지를 입력해주세요.",
+            )
+
+        result = await db.execute(
+            select(models.Ask_Location)
+            .where(models.Ask_Location.user_id == current_user.id)
+            .where(models.Ask_Location.keyword == search_keyword)
+        )
+
+        existing_record = result.scalars().first()
+
+        if existing_record:
+            return LocationAskResponse(
+                keyword=existing_record.keyword,
+                content=existing_record.content,
+                imageUrl=existing_record.image_url,
+            )
+
+        system_instruction = (
+            "당신은 전 세계의 매력적인 여행지를 소개해주는 베테랑 여행 도슨트(가이드)입니다.\n"
+            "유저가 묻는 도시에 대해 친절하고 설레는 어조로 답변해 주세요.\n"
+            "답변에는 [1.여행지의 핵심 매력/한줄평, 2.꼭 가야 할 대표 명소, 3.추천하는 현지 음식이나 문화]가 자연스럽게 포함되어야 합니다.\n"
+            "너무 딱딱한 문체 대신 줄바꿈을 적절히 활용하여 모바일 화면에서 가독성 좋게 작성해 주세요."
+        )
+
+        user_prompt = f"내가 지금 궁금한 여행지는 '{search_keyword}'야. 이 여행지에 대한 흥미롭고 알찬 가이드 정보를 작성해줘!"
+
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.7,
+            max_tokens=800,
+        )
+
+        ai_content = response.choices[0].message.content
+
+        if not ai_content:
+            raise HTTPException(status_code=500, detail="AI 데이터 파싱 실패")
+
+        async with httpx.AsyncClient() as http_client:
+            search_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+            search_params = {
+                "query": search_keyword,
+                "key": GOOGLE_API_KEY,
+                "language": "ko",
+            }
+
+            search_response = await http_client.get(search_url, params=search_params)
+            search_data = search_response.json()
+            results = search_data.get("results", [])
+
+            dynamic_image_url = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80"
+
+            if results and results[0].get("photos"):
+                photo_reference = results[0]["photos"][0]["photo_reference"]
+                dynamic_image_url = (
+                    f"https://maps.googleapis.com/maps/api/place/photo"
+                    f"?maxwidth=800"
+                    f"&photo_reference={photo_reference}"
+                    f"&key={GOOGLE_API_KEY}"
+                )
+
+        new_ask_record = models.Ask_Location(
+            user_id=current_user.id,
+            keyword=search_keyword,
+            content=ai_content.strip(),
+            image_url=dynamic_image_url,
+        )
+
+        db.add(new_ask_record)
+        await db.commit()
+        await db.refresh(new_ask_record)
+
+        return LocationAskResponse(
+            keyword=search_keyword,
+            content=ai_content.strip(),
+            imageUrl=dynamic_image_url,
+        )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"서버 에러 발생: {str(e)}",
+        )
+
+
+#################################
+
+
+@app.post(
+    "/api/v1/user/feedback",
+    response_model=FeedbackCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_user_feedback(
+    request: FeedbackCreateRequest, db: SessionDep, current_user: CurrentUserDep
+):
+    try:
+        feedback_content = request.content.strip()
+        if not feedback_content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="피드백 내용을 입력해 주세요.",
+            )
+
+        new_feedback = models.User_Feedback(
+            user_id=current_user.id,
+            content=feedback_content,
+        )
+
+        db.add(new_feedback)
+        await db.commit()
+
+        return FeedbackCreateResponse(
+            status="success",
+            message="피드백이 성공적으로 접수되었습니다.",
+        )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"피드백 제출 중 서버 에러가 발생했습니다: {str(e)}",
         )

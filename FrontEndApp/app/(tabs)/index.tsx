@@ -9,6 +9,10 @@ import {
   ActivityIndicator,
   Alert,
   ImageBackground,
+  Linking,
+  Modal,
+  Pressable,
+  Platform,
 } from "react-native";
 import {
   Search,
@@ -18,19 +22,43 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Star,
+  X,
 } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { client } from "@/api/client";
 import * as Location from "expo-location";
+import { useRouter } from "expo-router";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   const [displayLocation, setDisplayLocation] = useState("위치 탐색 중...");
   const [isLocationLoading, setIsLocationLoading] = useState(true);
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [coords, setCoords] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+
+  const handleAskAI = () => {
+    if (!searchQuery.trim()) {
+      alert("여행지를 입력해 주세요!");
+      return;
+    }
+
+    setModalVisible(false);
+
+    router.push({
+      pathname: "/answer",
+      params: { keyword: searchQuery.trim() },
+    });
+
+    setSearchQuery("");
+  };
 
   const { data: userData, isPending } = useQuery({
     queryKey: ["currentUserProfile"],
@@ -51,13 +79,13 @@ export default function HomeScreen() {
   const hasHistory = statsData && statsData.total_location > 0;
 
   const { data: recommendedPlans, isPending: isRecommendPending } = useQuery({
-    queryKey: ["tripRecommend ", hasHistory, coords],
+    queryKey: ["tripRecommend", hasHistory, coords],
     queryFn: async () => {
       if (hasHistory) {
         const response = await client.get("/v1/trip/recommend/history");
         return response.data;
       } else {
-        const response = await client.get("/v1/trips/recommend/nearby", {
+        const response = await client.get("/v1/trip/recommend/nearby", {
           params: {
             latitude: coords?.latitude ?? 37.5665,
             longitude: coords?.longitude ?? 126.978,
@@ -66,7 +94,7 @@ export default function HomeScreen() {
         return response.data;
       }
     },
-    enabled: !isLocationLoading || hasHistory,
+    enabled: (!isLocationLoading && !!coords) || hasHistory,
   });
 
   const getUserLocation = async () => {
@@ -89,6 +117,7 @@ export default function HomeScreen() {
       });
 
       const { latitude, longitude } = location.coords;
+
       setCoords({ latitude, longitude });
 
       let reverseRegion = await Location.reverseGeocodeAsync({
@@ -109,6 +138,32 @@ export default function HomeScreen() {
       setCoords({ latitude: 37.5665, longitude: 126.978 });
     } finally {
       setIsLocationLoading(false);
+    }
+  };
+
+  const handleOpenGoogleMap = async () => {
+    if (!coords?.latitude || !coords?.longitude) {
+      Alert.alert(
+        "안내",
+        "현재 위치 정보를 가져오는 중입니다. 잠시 후 다시 시도해 주세요.",
+      );
+      return;
+    }
+
+    const { latitude, longitude } = coords;
+
+    const googleMapUrl = `https://www.google.com/maps/@${latitude},${longitude},15z`;
+
+    try {
+      const supported = await Linking.canOpenURL(googleMapUrl);
+
+      if (supported) {
+        await Linking.openURL(googleMapUrl);
+      } else {
+        await Linking.openURL(googleMapUrl);
+      }
+    } catch (error) {
+      Alert.alert("에러", "구글 맵을 여는 중 문제가 발생했습니다.");
     }
   };
 
@@ -163,19 +218,78 @@ export default function HomeScreen() {
         <Text style={styles.welcomeTitle}>어디로 떠나고 {"\n"}싶으신가요?</Text>
       </View>
 
-      {/* 3. AI 스마트 검색 바 */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="AI에게 여행지를 말해보세요"
-            placeholderTextColor="#9CA3AF"
-          />
-          <TouchableOpacity>
+      <View style={{ flex: 1 }}>
+        {/* 3. AI 스마트 검색 바 */}
+        <View style={styles.searchContainer}>
+          <Pressable
+            style={styles.searchBar}
+            onPress={() => setModalVisible(true)}
+          >
+            <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
+            <View style={{ flex: 1, justifyContent: "center" }}>
+              <Text style={{ color: "#9CA3AF", fontSize: 16 }}>
+                궁금한 여행지를 물어보세요
+              </Text>
+            </View>
+
             <SlidersHorizontal size={20} color="#4B5563" />
-          </TouchableOpacity>
+          </Pressable>
         </View>
+
+        {/* 📱 팝업 모달 UI 구현 */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          {/* 모달 바깥 어두운 배경 */}
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => setModalVisible(false)}
+          >
+            <KeyboardAvoidingView
+              behavior="padding"
+              keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 50}
+              style={styles.keyboardAvoidingWrapper}
+            >
+              {/* 모달 실물 컨텐츠 박스 */}
+              <View
+                style={styles.modalContent}
+                onStartShouldSetResponder={() => true}
+              >
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>🤖 여행지 맞춤 정보 </Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <X size={22} color="#4B5563" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.modalDescription}>
+                  AI에게 궁금한 여행지를 물어보면 맞춤 여행 정보를 답변해줘요.
+                </Text>
+
+                {/* 실제 글자를 타이핑하는 인풋창 */}
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="예: 도쿄, 뉴욕, 파리, 런던 등"
+                  placeholderTextColor="#9CA3AF"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus={true}
+                  onSubmitEditing={handleAskAI}
+                />
+
+                <TouchableOpacity
+                  style={styles.askButton}
+                  onPress={handleAskAI}
+                >
+                  <Text style={styles.askButtonText}>물어보기</Text>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          </Pressable>
+        </Modal>
       </View>
 
       {/* 4. AI 큐레이션 섹션 (조건부 맞춤 타이틀 적용) */}
@@ -194,12 +308,14 @@ export default function HomeScreen() {
         {isRecommendPending || isStatsPending ? (
           <View style={styles.loadingWrapper}>
             <ActivityIndicator size="large" color="#2563EB" />
-            <Text style={styles.loadingText}>
-              {userData?.nickname
-                ? `${userData.nickname}님,`
-                : `${userData?.username?.split("@")[0]}님,`}
-              을 위한 여행지 분석 중...
-            </Text>
+            {userData && (
+              <Text style={styles.loadingText}>
+                {userData.nickname
+                  ? `${userData.nickname}`
+                  : `${userData.username?.split("@")[0]}`}
+                님을 위한 맞춤 여행지 분석중...
+              </Text>
+            )}
           </View>
         ) : (
           <ScrollView
@@ -209,7 +325,16 @@ export default function HomeScreen() {
           >
             {recommendedPlans && recommendedPlans.length > 0 ? (
               recommendedPlans.map((item: any, index: number) => (
-                <TouchableOpacity key={item.id || index} style={styles.card}>
+                <TouchableOpacity
+                  key={item.id || index}
+                  style={styles.card}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/answer",
+                      params: { keyword: item.title.trim() },
+                    });
+                  }}
+                >
                   <ImageBackground
                     source={{
                       uri:
@@ -217,8 +342,6 @@ export default function HomeScreen() {
                         "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80",
                     }}
                     style={styles.cardImagePlaceholder}
-                    // 이미지 자체의 테두리를 둥글게 깎아 카드 컴포넌트와 일체감을 줍니다.
-                    // imageStyle={styles.cardImage}
                   >
                     <Text style={styles.cardTag}>
                       {item.tag || `#${item.category || "여행"}`}
@@ -233,7 +356,6 @@ export default function HomeScreen() {
                       <Star size={14} color="#FBBF24" fill="#FBBF24" />
                       <Text style={styles.rating}>{item.rating || "4.5"}</Text>
 
-                      {/* 💡 백엔드에서 내려주는 distance ("취향 일치" 또는 "X.Xkm")를 그대로 바인딩합니다 */}
                       <Text style={styles.distance}>
                         {` • ${item.distance}`}
                       </Text>
@@ -253,9 +375,9 @@ export default function HomeScreen() {
       </View>
 
       {/* 5. 실시간 가이드 바로가기 배너 */}
-      <TouchableOpacity style={styles.banner}>
+      <TouchableOpacity style={styles.banner} onPress={handleOpenGoogleMap}>
         <View>
-          <Text style={styles.bannerSubtitle}>여행 중이신가요?</Text>
+          <Text style={styles.bannerSubtitle}>혹시, 여행 중이신가요?</Text>
           <Text style={styles.bannerTitle}>여행 지도 켜기</Text>
         </View>
         <View style={styles.bannerIcon}>
@@ -371,7 +493,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 12,
     fontWeight: "600",
-    color: "#4F46E5",
+    color: "#2563EB",
   },
   cardContent: { padding: 12 },
   cardTitle: {
@@ -424,5 +546,59 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  // 모달 스타일 추가
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // 뒷배경 블러 효과 대신 어둡게 처리
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "bold", color: "#1F2937" },
+  modalDescription: { fontSize: 14, color: "#6B7280", marginBottom: 16 },
+  modalInput: {
+    width: "100%",
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: "#1F2937",
+    marginBottom: 16,
+    backgroundColor: "#F9FAFB",
+  },
+  askButton: {
+    width: "100%",
+    height: 48,
+    backgroundColor: "#4F46E5", // 성진님 서비스 포인트 컬러로 변경 가능
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  askButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  keyboardAvoidingWrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

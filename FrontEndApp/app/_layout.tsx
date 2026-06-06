@@ -11,6 +11,7 @@ import { ThemeProvider } from "@react-navigation/native";
 import { APIProvider } from "@/api/api-provider";
 import theme from "@/utils/use-theme-config";
 import * as SecureStore from "expo-secure-store";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
 const AuthContext = createContext<{
   isLoggedIn: boolean;
@@ -24,9 +25,11 @@ SplashScreen.preventAutoHideAsync();
 const Providers = ({ children }: { children: ReactNode }) => {
   return (
     <GestureHandlerRootView>
-      <APIProvider>
-        <ThemeProvider value={theme}>{children}</ThemeProvider>
-      </APIProvider>
+      <KeyboardProvider>
+        <APIProvider>
+          <ThemeProvider value={theme}>{children}</ThemeProvider>
+        </APIProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 };

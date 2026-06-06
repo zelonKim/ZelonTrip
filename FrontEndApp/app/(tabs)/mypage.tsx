@@ -26,6 +26,7 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/api/client";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 export default function MyPageScreen() {
   const insets = useSafeAreaInsets();
@@ -35,7 +36,39 @@ export default function MyPageScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputNickname, setInputNickname] = useState("");
 
-  // 1. 유저 프로필 조회 Query
+  const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+
+  const feedbackMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const response = await client.post("/v1/user/feedback", { content });
+      return response.data;
+    },
+    onSuccess: () => {
+      Alert.alert(
+        "✅ 접수 완료 ",
+        "피드백이 성공적으로 접수되었습니다!",
+      );
+      setIsFeedbackModalVisible(false);
+      setFeedbackText("");
+    },
+    onError: (error: any) => {
+      const errMsg =
+        error.response?.data?.detail ||
+        "피드백 전송에 실패했습니다. 다시 시도해 주세요.";
+      Alert.alert("오류", errMsg);
+    },
+  });
+
+  const handleSendFeedback = () => {
+    const trimmedFeedback = feedbackText.trim();
+    if (!trimmedFeedback) {
+      Alert.alert("안내", "피드백 내용을 입력해 주세요.");
+      return;
+    }
+    feedbackMutation.mutate(feedbackText);
+  };
+
   const { data: userData, isPending: isUserPending } = useQuery({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
@@ -52,8 +85,8 @@ export default function MyPageScreen() {
     },
   });
 
-  const handleMenuPress = (menuTitle: string) => {
-    console.log(`${menuTitle} 메뉴 클릭됨`);
+  const handleFeedbackMenuPress = () => {
+    setIsFeedbackModalVisible(true);
   };
 
   const handleLogout = () => {
@@ -183,7 +216,7 @@ export default function MyPageScreen() {
                     {userData?.nickname ? (
                       <View style={styles.nicknameContainer}>
                         <Text style={styles.profileName}>
-                          {userData.nickname}님
+                          {userData.nickname}
                         </Text>
                         <TouchableOpacity
                           style={styles.editBadge}
@@ -204,11 +237,7 @@ export default function MyPageScreen() {
                         </Text>
                       </TouchableOpacity>
                     )}
-                    <Text style={styles.profileEmail}>
-                      {userData?.username?.split("@")[0]
-                        ? `${userData.username.split("@")[0]}님`
-                        : userData?.username}
-                    </Text>
+                    <Text style={styles.profileEmail}>{userData.username}</Text>
                   </>
                 )}
               </View>
@@ -219,7 +248,7 @@ export default function MyPageScreen() {
           {/* AI 취향 페르소나 배지 라인 */}
           <View style={styles.badgeSection}>
             <View style={styles.badgeTitleRow}>
-              <Award size={16} color="#2563EB" />
+              <Award size={16} color={"#374151"} />
               <Text style={styles.badgeSectionTitle}>취득한 뱃지</Text>
             </View>
             <View style={styles.badgeRow}>
@@ -251,21 +280,24 @@ export default function MyPageScreen() {
         <Text style={{ marginTop: 2 }}></Text>
         <View style={styles.menuGroupCard}>
           <View style={styles.statsRow}>
-            <View style={styles.statsIconWrapper}>
-              <Footprints size={24} color="#4B5563" />
-            </View>
+            <View style={styles.statsIconWrapper}></View>
+
             <View style={styles.statsContent}>
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: "600",
-                  color: "#374151",
-                  marginBottom: 3,
-                  includeFontPadding: false,
-                }}
-              >
-                나의 여행 발자국
-              </Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                <Footprints size={18} color="#4B5563" />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "600",
+                    color: "#374151",
+                    marginBottom: 3,
+                    marginLeft: 2,
+                    includeFontPadding: false,
+                  }}
+                >
+                  나의 여행 발자국
+                </Text>
+              </View>
 
               {isStatsPending ? (
                 <ActivityIndicator
@@ -277,9 +309,9 @@ export default function MyPageScreen() {
                 <Text style={styles.statsSubText}>
                   지금까지 ZelonTrip과 함께{" "}
                   <Text style={styles.highlightText}>
-                    {statsData?.total_location ?? 0}개의{"\n"} 여행지
+                    {statsData?.total_location ?? 0}개의 여행지
                   </Text>
-                  를 탐방했어요!
+                  를{"\n"}탐방했어요!
                 </Text>
               )}
             </View>
@@ -309,7 +341,7 @@ export default function MyPageScreen() {
           {/* 공지사항 */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => handleMenuPress("공지사항")}
+            onPress={() => console.log("공지사항")}
           >
             <View style={styles.menuItemLeft}>
               <Megaphone size={20} color="#4B5563" />
@@ -323,7 +355,7 @@ export default function MyPageScreen() {
           {/* 피드백 보내기 */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => handleMenuPress("피드백 보내기")}
+            onPress={handleFeedbackMenuPress}
           >
             <View style={styles.menuItemLeft}>
               <MessageSquare size={20} color="#4B5563" />
@@ -393,6 +425,66 @@ export default function MyPageScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isFeedbackModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsFeedbackModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior="padding"
+            keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 50}
+            style={styles.keyboardAvoidingWrapper}
+          >
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>💬 피드백 보내기 </Text>
+              <Text style={styles.modalSubtitle}>
+                ZelonTrip을 이용하면서 좋았던 점이나 {"\n"}불편했던 점을
+                자유롭게 작성해주세요.
+              </Text>
+
+              <TextInput
+                style={styles.feedbackInput}
+                placeholder="여기에 내용을 입력해 주세요 (최대 300자)"
+                placeholderTextColor="#9CA3AF"
+                value={feedbackText}
+                onChangeText={setFeedbackText}
+                maxLength={300}
+                multiline={true}
+                numberOfLines={4}
+                textAlignVertical="top"
+                autoFocus={true}
+              />
+
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setIsFeedbackModalVisible(false);
+                    setFeedbackText("");
+                  }}
+                  disabled={feedbackMutation.isPending}
+                >
+                  <Text style={styles.modalCancelButtonText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalSaveButton]}
+                  onPress={handleSendFeedback}
+                  disabled={feedbackMutation.isPending}
+                >
+                  {feedbackMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalSaveButtonText}>보내기</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -490,8 +582,8 @@ const styles = StyleSheet.create({
   badgeSectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#2563EB",
     marginLeft: 6,
+    color: "#374151",
   },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   personaBadge: {
@@ -536,7 +628,7 @@ const styles = StyleSheet.create({
   },
 
   statsRow: { flexDirection: "row", alignItems: "center", paddingVertical: 16 },
-  statsIconWrapper: { marginRight: 12 },
+  statsIconWrapper: { marginRight: 6 },
   statsContent: { flex: 1 },
   statsSubText: {
     fontSize: 13,
@@ -590,7 +682,8 @@ const styles = StyleSheet.create({
     width: "85%",
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    padding: 24,
+    padding: 28,
+
     alignItems: "center",
     ...Platform.select({
       ios: {
@@ -606,7 +699,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#111827",
-    marginBottom: 6,
+    marginBottom: 12,
   },
   modalSubtitle: { fontSize: 13, color: "#6B7280", marginBottom: 16 },
   nicknameInput: {
@@ -633,4 +726,22 @@ const styles = StyleSheet.create({
   modalCancelButtonText: { color: "#4B5563", fontSize: 14, fontWeight: "600" },
   modalSaveButton: { backgroundColor: "#2563EB" },
   modalSaveButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
+  feedbackInput: {
+    width: "100%",
+    height: 120,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#111827",
+    marginBottom: 20,
+    backgroundColor: "#F9FAFB",
+  },
+  keyboardAvoidingWrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

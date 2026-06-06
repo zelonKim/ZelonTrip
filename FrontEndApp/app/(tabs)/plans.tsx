@@ -20,12 +20,9 @@ import {
 } from "lucide-react-native";
 import { client } from "@/api/client";
 
-
-
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-
 
   const fetchTripList = async () => {
     const response = await client.get("/v1/trip/list");
@@ -43,7 +40,6 @@ export default function PlansScreen() {
       params: { id },
     });
   };
-
 
   if (isPending) {
     return (
@@ -114,7 +110,7 @@ export default function PlansScreen() {
                   <CalendarDays size={13} color="#9CA3AF" />
                   <Text style={styles.dateText}>
                     {plan.itinerary?.length === 1
-                      ? "당일치기 ☀️"
+                      ? "당일치기 "
                       : `${plan.itinerary?.length - 1}박 ${plan.itinerary?.length}일`}
                   </Text>
                 </View>

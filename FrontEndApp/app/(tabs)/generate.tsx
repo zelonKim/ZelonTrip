@@ -106,8 +106,10 @@ export default function GenerateScreen() {
       return response.data;
     },
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
       queryClient.invalidateQueries({ queryKey: ["tripList"] });
+      queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
+      queryClient.invalidateQueries({ queryKey: ["userTripStats"] });
+      queryClient.invalidateQueries({ queryKey: ["tripRecommend"] });
 
       Alert.alert(
         "일정 생성 완료 🎉",

@@ -90,6 +90,14 @@ export default function TabLayout() {
           href: null,
         }}
       />
+
+      <Tabs.Screen
+        name="answer"
+        options={{
+          title: "AI 답변",
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
