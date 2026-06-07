@@ -21,6 +21,7 @@ import {
   Megaphone,
   MessageSquare,
   ChevronRight,
+  Moon,
 } from "lucide-react-native";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -45,10 +46,7 @@ export default function MyPageScreen() {
       return response.data;
     },
     onSuccess: () => {
-      Alert.alert(
-        "✅ 접수 완료 ",
-        "피드백이 성공적으로 접수되었습니다!",
-      );
+      Alert.alert("✅ 접수 완료 ", "피드백이 성공적으로 접수되었습니다!");
       setIsFeedbackModalVisible(false);
       setFeedbackText("");
     },
@@ -324,8 +322,8 @@ export default function MyPageScreen() {
           {/* 알림 설정 */}
           <View style={styles.menuItem}>
             <View style={styles.menuItemLeft}>
-              <Bell size={20} color="#4B5563" />
-              <Text style={styles.menuText}>알림 설정</Text>
+              <Moon size={20} color="#4B5563" />
+              <Text style={styles.menuText}>어두운 배경</Text>
             </View>
             <Switch
               trackColor={{ false: "#E5E7EB", true: "#93C5FD" }}
@@ -341,7 +339,7 @@ export default function MyPageScreen() {
           {/* 공지사항 */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => console.log("공지사항")}
+            onPress={() => router.push("/(tabs)/notice")}
           >
             <View style={styles.menuItemLeft}>
               <Megaphone size={20} color="#4B5563" />

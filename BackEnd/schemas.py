@@ -301,8 +301,42 @@ class LocationAskResponse(BaseModel):
 
 
 class FeedbackCreateRequest(BaseModel):
-    content: str = Field(..., min_length=5, max_length=300, description="피드백 내용 (5자 이상 300자 이하)")
+    content: str = Field(
+        ...,
+        min_length=5,
+        max_length=300,
+        description="피드백 내용 (5자 이상 300자 이하)",
+    )
+
 
 class FeedbackCreateResponse(BaseModel):
     status: str
     message: str
+
+
+###############################
+
+
+class NoticeResponse(BaseModel):
+    id: int
+    title: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+#############################
+
+
+class NotificationContents(BaseModel):
+    title: str
+    body: str
+    message: str | None = None
+
+
+class NotificationRequest(BaseModel):
+    pushToken: str
+    deviceId: str
+    contents: NotificationContents

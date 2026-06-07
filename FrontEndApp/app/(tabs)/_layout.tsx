@@ -8,7 +8,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
-  const tabHeight = 45 + insets.bottom;
+  const tabHeight = 56 + insets.bottom;
 
   return (
     <Tabs
@@ -17,7 +17,8 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           height: tabHeight,
-          paddingTop: 8,
+          paddingTop: 6,
+
           borderTopWidth: 1,
           borderTopColor: "#E5E7EB",
           backgroundColor: "#FFFFFF",
@@ -95,6 +96,21 @@ export default function TabLayout() {
         name="answer"
         options={{
           title: "AI 답변",
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="notice/index"
+        options={{
+          title: "공지사항",
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="notice/[id]"
+        options={{
+          title: "공지사항 상세",
           href: null,
         }}
       />

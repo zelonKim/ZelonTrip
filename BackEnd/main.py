@@ -27,6 +27,8 @@ from schemas import (
     LocationAskRequest,
     FeedbackCreateResponse,
     FeedbackCreateRequest,
+    NoticeResponse,
+    NotificationRequest,
 )
 from dotenv import load_dotenv
 from scalar_fastapi import get_scalar_api_reference
@@ -38,6 +40,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
 from typing import List
 import httpx
+import firebase_admin
+from firebase_admin import credentials, messaging
 
 
 load_dotenv()
@@ -942,4 +946,105 @@ async def create_user_feedback(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"피드백 제출 중 서버 에러가 발생했습니다: {str(e)}",
+        )
+
+
+###################################
+
+
+@app.get(
+    "/api/v1/notice",
+    response_model=List[NoticeResponse],
+    status_code=status.HTTP_200_OK,
+)
+async def get_notice_list(db: SessionDep):
+    try:
+        query = select(models.Notice).order_by(desc(models.Notice.created_at))
+        result = await db.execute(query)
+        notices = result.scalars().all()
+        return notices
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"공지사항 목록을 불러오는 중 에러가 발생했습니다: {str(e)}",
+        )
+
+
+################################
+
+
+@app.get("/api/v1/notice/{id}", response_model=NoticeResponse)
+async def get_notice_detail(id: int, db: SessionDep):
+    try:
+        notice = await db.get(models.Notice, id)
+
+        if not notice:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ID {id}에 해당하는 공지사항을 찾을 수 없습니다.",
+            )
+
+        return NoticeResponse.model_validate(notice)
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"공지사항 상세 조회 중 에러 발생: {str(e)}",
+        )
+
+
+################################
+
+
+KEY_PATH = "google-service-key.json"
+
+if not firebase_admin._apps:
+    if os.path.exists(KEY_PATH):
+        cred = credentials.Certificate(KEY_PATH)
+        firebase_admin.initialize_app(cred)
+    else:
+        print(f"⚠️ 경고: {KEY_PATH} 파일이 없어 Firebase를 초기화 할 수 없습니다.")
+
+
+@app.post("/api/v1/notification", status_code=status.HTTP_200_OK)
+async def send_generate_notification(request: NotificationRequest):
+    try:
+        token = request.pushToken
+        device_id = request.deviceId
+        title = request.contents.title
+        body = request.contents.body
+
+        additional_data = {"message": request.contents.message, "deviceId": device_id}
+
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+            ),
+            data=additional_data,
+            token=token,
+        )
+
+        response = messaging.send(message)
+
+        print(f"📱 디바이스 [{device_id}]로 푸시 알림 발송 성공")
+
+        return {
+            "success": True,
+            "message": "푸시 알림 발송 성공",
+            "fcm_message_id": response,
+        }
+
+    except messaging.FirebaseError as fe:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Firebase 푸시 발송 실패: {str(fe)}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"서버 내부 오류: {str(e)}",
         )

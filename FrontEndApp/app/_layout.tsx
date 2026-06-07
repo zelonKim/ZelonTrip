@@ -13,6 +13,8 @@ import theme from "@/utils/use-theme-config";
 import * as SecureStore from "expo-secure-store";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
+
+
 const AuthContext = createContext<{
   isLoggedIn: boolean;
   checkAuthStatus: () => Promise<void>;
@@ -23,6 +25,9 @@ export const useAuth = () => useContext(AuthContext);
 SplashScreen.preventAutoHideAsync();
 
 const Providers = ({ children }: { children: ReactNode }) => {
+
+
+
   return (
     <GestureHandlerRootView>
       <KeyboardProvider>

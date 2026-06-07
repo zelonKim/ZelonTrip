@@ -123,6 +123,29 @@ class User_Feedback(SQLModel, table=True):
 ##############################################
 
 
+class Notice(SQLModel, table=True):
+    __tablename__ = "notices"
+
+    id: int | None  = Field(default=None, primary_key=True, index=True)
+
+    title: str = Field(nullable=False, max_length=100, description="공지사항 제목")
+
+    content: str = Field(
+        sa_column=Column(Text, nullable=False), description="공지사항 본문"
+    )
+
+    created_at: datetime = Field(
+        sa_column=Column(
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            default=lambda: datetime.now(timezone.utc),
+        )
+    )
+
+
+##############################################
+
+
 class BlacklistedToken(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     token: str = Field(index=True, unique=True)

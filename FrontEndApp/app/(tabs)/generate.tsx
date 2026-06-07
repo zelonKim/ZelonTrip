@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -26,6 +27,9 @@ import Slider from "@react-native-community/slider";
 import { client } from "@/api/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
+import { registerForPushNotificationsAsync } from "@/services/notifications";
+import { getDeviceId } from "@/services/helpers";
 
 // 옵션 데이터 상수 정의
 const MBTI_OPTIONS = [
@@ -73,8 +77,86 @@ const TENDENCY_TAGS = [
   "🛌 깔끔한 숙소 필수",
 ];
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 export default function GenerateScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
+  // 💡 [리팩토링 핵심] 미리 발급받은 푸시 토큰과 디바이스 ID를 보관할 상태 공간
+  const [cachedPushToken, setCachedPushToken] = useState<string | null>(null);
+  const [cachedDeviceId, setCachedDeviceId] = useState<string | null>(null);
+
+  const notificationsListener = useRef<Notifications.EventSubscription | null>(
+    null,
+  );
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+
+  // 💡 [리팩토링 핵심] 앱이 켜지자마자 백그라운드에서 토큰을 미리 따둡니다. (생성 버튼 누를 때 지연 방지)
+  useEffect(() => {
+    const prepareNotificationTokens = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        const deviceId = await getDeviceId();
+        if (token) setCachedPushToken(token);
+        if (deviceId) setCachedDeviceId(deviceId);
+      } catch (error) {
+        console.log("초기 토큰 준비 실패 (알림 권한 미허용 등):", error);
+      }
+    };
+
+    prepareNotificationTokens();
+
+    // 푸시 수신 및 알림 클릭 리스너 설정
+    notificationsListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        console.log("알림 수신:", notification);
+      });
+
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        console.log("알림 클릭:", response);
+        const planId = response.notification.request.content.data?.planId;
+        if (planId) {
+          Linking.openURL(`zelontrip://plan/${planId}`);
+        }
+      });
+
+    return () => {
+      notificationsListener.current?.remove();
+      responseListener.current?.remove();
+    };
+  }, []);
+
+  // 💡 성공 시 즉시 캐싱된 토큰으로 푸시를 쏘는 함수 (비동기 await 제거로 렌더링 블로킹 방지)
+  const sendSuccessNotification = (planId: string) => {
+    if (!cachedPushToken || !cachedDeviceId) {
+      console.log("미리 준비된 푸시 토큰이 없어 알림 발송을 건너뜁니다.");
+      return;
+    }
+
+    client
+      .post("/v1/notification", {
+        pushToken: cachedPushToken,
+        deviceId: cachedDeviceId,
+        contents: {
+          title: "생성 완료",
+          body: `${location} 여행 플랜이 생성되었습니다`,
+          message: "AI가 생성한 여행 플랜을 보완할 수도 있어요.",
+        },
+        // 필요시 데이터 영역에 planId를 태워 보내 딥링크에 활용할 수 있습니다.
+        data: { planId },
+      })
+      .catch((err) => console.log("푸시 알림 요청 실패:", err));
+  };
 
   // 입력 데이터 상태 관리
   const [location, setLocation] = useState("");
@@ -97,8 +179,6 @@ export default function GenerateScreen() {
     }
   };
 
-  const queryClient = useQueryClient();
-
   // AI 여행 일정 생성 처리
   const { mutate, isPending } = useMutation({
     mutationFn: async (requestData: any) => {
@@ -106,6 +186,9 @@ export default function GenerateScreen() {
       return response.data;
     },
     onSuccess: (res) => {
+      // 💡 [리팩토링 적용] 성공했을 때만! 비동기 딜레이 없이 즉시 캐싱된 토큰으로 알림 발송
+      sendSuccessNotification(res.id);
+
       queryClient.invalidateQueries({ queryKey: ["tripList"] });
       queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
       queryClient.invalidateQueries({ queryKey: ["userTripStats"] });
@@ -136,7 +219,7 @@ export default function GenerateScreen() {
     },
   });
 
-  // 💡 버튼을 눌렀을 때 실행되는 유효성 검사 로직
+  // 유효성 검사 및 생성 버튼 트리거
   const handleGenerate = () => {
     if (!location.trim()) {
       Alert.alert("안내", "여행지를 입력해 주세요.");
@@ -204,7 +287,7 @@ export default function GenerateScreen() {
           </View>
           <TextInput
             style={styles.input}
-            placeholder="어디로 떠나시나요? (예: 파리, 뉴욕, 도쿄)"
+            placeholder="어디로 떠나시나요? (예: 도쿄, 뉴욕)"
             placeholderTextColor="#9CA3AF"
             value={location}
             onChangeText={setLocation}
@@ -266,7 +349,7 @@ export default function GenerateScreen() {
           </ScrollView>
         </View>
 
-        {/* 4. 여행 취향 선택 (하이브리드 구조) */}
+        {/* 4. 여행 취향 선택 */}
         <View style={styles.card}>
           <View style={styles.labelRow}>
             <Compass size={20} color="#2563EB" />
@@ -336,7 +419,7 @@ export default function GenerateScreen() {
           </View>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="예: 숙소 주변에 치안이 좋은 곳 위주로 짜주세요!"
+            placeholder="예: 교통이 편한 곳 위주로 관광 코스를 짜주세요."
             placeholderTextColor="#9CA3AF"
             multiline
             numberOfLines={3}
@@ -434,14 +517,13 @@ export default function GenerateScreen() {
           </View>
         </View>
 
+        {/* 제출 버튼 */}
         <TouchableOpacity
-          // 💡 isPending이 true일 때 styles.disabledBtn 스타일을 덮어씌웁니다.
           style={[styles.submitBtn, isPending && styles.disabledBtn]}
           onPress={handleGenerate}
           disabled={isPending}
         >
           {isPending ? (
-            // 💡 내부 View의 배경색은 빼고 정렬만 유지합니다.
             <View style={styles.waiting}>
               <Text style={styles.submitBtnText}>여행 일정 생성 중 </Text>
               <ActivityIndicator
@@ -646,10 +728,5 @@ const styles = StyleSheet.create({
     shadowColor: "transparent",
     elevation: 0,
   },
-
-  waiting: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+  waiting: { flexDirection: "row", alignItems: "center", gap: 8 },
 });

@@ -82,7 +82,7 @@ export default function AnswerScreen() {
             style={styles.closeButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.closeButtonText}>돌아가기</Text>
+            <Text style={styles.closeButtonText}>홈으로</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

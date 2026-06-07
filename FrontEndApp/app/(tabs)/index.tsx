@@ -23,40 +23,96 @@ import {
   ChevronRight,
   Star,
   X,
+  RotateCw,
 } from "lucide-react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/api/client";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [displayLocation, setDisplayLocation] = useState("위치 탐색 중...");
   const [isLocationLoading, setIsLocationLoading] = useState(true);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
   const [coords, setCoords] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+
+  // 💡 새 알림 유무 확인용 배지 상태 추가
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+
+  // 💡 수신된 알림을 로컬 기기에 저장하는 함수
+  const saveNotificationToStorage = async (
+    notification: Notifications.Notification,
+  ) => {
+    try {
+      const existingData = await AsyncStorage.getItem(
+        "zelontrip_notifications",
+      );
+      const currentNotifications = existingData ? JSON.parse(existingData) : [];
+
+      const newNotificationItem = {
+        id: notification.request.identifier,
+        title: notification.request.content.title,
+        body: notification.request.content.body,
+        date: new Date().toISOString(),
+        planId: notification.request.content.data?.planId || null,
+      };
+
+      // 최신 알림이 맨 위로 가도록 누적
+      await AsyncStorage.setItem(
+        "zelontrip_notifications",
+        JSON.stringify([newNotificationItem, ...currentNotifications]),
+      );
+      setHasNewNotification(true); // 배지 켜기
+    } catch (error) {
+      console.log("알림 저장 실패:", error);
+    }
+  };
+
+  useEffect(() => {
+    getUserLocation();
+
+    // 💡 [핵심] 홈 스크린 마운트 시점에 푸시 알림 리스너를 연동하여 기기에 자동 저장되게 처리
+    const notificationsListener = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        saveNotificationToStorage(notification);
+      },
+    );
+
+    // 앱 켤 때 읽지 않은 알림이 있는지 체크하는 로직
+    const checkBadgeStatus = async () => {
+      const existingData = await AsyncStorage.getItem(
+        "zelontrip_notifications",
+      );
+      if (existingData) {
+        const list = JSON.parse(existingData);
+        if (list.length > 0) setHasNewNotification(true);
+      }
+    };
+    checkBadgeStatus();
+
+    return () => notificationsListener.remove();
+  }, []);
 
   const handleAskAI = () => {
     if (!searchQuery.trim()) {
       alert("여행지를 입력해 주세요!");
       return;
     }
-
     setModalVisible(false);
-
     router.push({
       pathname: "/answer",
       params: { keyword: searchQuery.trim() },
     });
-
     setSearchQuery("");
   };
 
@@ -78,7 +134,12 @@ export default function HomeScreen() {
 
   const hasHistory = statsData && statsData.total_location > 0;
 
-  const { data: recommendedPlans, isPending: isRecommendPending } = useQuery({
+  const {
+    data: recommendedPlans,
+    isPending: isRecommendPending,
+    refetch: refetchRecommend,
+    isRefetching: isRecommendRefetching,
+  } = useQuery({
     queryKey: ["tripRecommend", hasHistory, coords],
     queryFn: async () => {
       if (hasHistory) {
@@ -117,7 +178,6 @@ export default function HomeScreen() {
       });
 
       const { latitude, longitude } = location.coords;
-
       setCoords({ latitude, longitude });
 
       let reverseRegion = await Location.reverseGeocodeAsync({
@@ -149,27 +209,21 @@ export default function HomeScreen() {
       );
       return;
     }
-
     const { latitude, longitude } = coords;
-
     const googleMapUrl = `https://www.google.com/maps/@${latitude},${longitude},15z`;
-
     try {
-      const supported = await Linking.canOpenURL(googleMapUrl);
-
-      if (supported) {
-        await Linking.openURL(googleMapUrl);
-      } else {
-        await Linking.openURL(googleMapUrl);
-      }
+      await Linking.openURL(googleMapUrl);
     } catch (error) {
       Alert.alert("에러", "구글 맵을 여는 중 문제가 발생했습니다.");
     }
   };
 
-  useEffect(() => {
-    getUserLocation();
-  }, []);
+  const handleRefreshRecommend = async () => {
+    await queryClient.resetQueries({
+      queryKey: ["tripRecommend", hasHistory, coords],
+    });
+    await refetchRecommend();
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -194,9 +248,17 @@ export default function HomeScreen() {
             )}
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.iconButton}>
+
+        {/* 💡 [리팩토링] Bell 버튼 클릭 시 알림 전용 페이지로 라우팅 이동 및 알림 클릭 시 빨간 배지 초기화 */}
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => {
+            setHasNewNotification(false);
+            router.push("/notification");
+          }}
+        >
           <Bell size={24} color="#1F2937" strokeWidth={2} />
-          <View style={styles.notificationBadge} />
+          {hasNewNotification && <View style={styles.notificationBadge} />}
         </TouchableOpacity>
       </View>
 
@@ -231,19 +293,17 @@ export default function HomeScreen() {
                 궁금한 여행지를 물어보세요
               </Text>
             </View>
-
             <SlidersHorizontal size={20} color="#4B5563" />
           </Pressable>
         </View>
 
-        {/* 📱 팝업 모달 UI 구현 */}
+        {/* 팝업 모달 UI */}
         <Modal
           animationType="fade"
           transparent={true}
           visible={modalVisible}
           onRequestClose={() => setModalVisible(false)}
         >
-          {/* 모달 바깥 어두운 배경 */}
           <Pressable
             style={styles.modalOverlay}
             onPress={() => setModalVisible(false)}
@@ -253,7 +313,6 @@ export default function HomeScreen() {
               keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 50}
               style={styles.keyboardAvoidingWrapper}
             >
-              {/* 모달 실물 컨텐츠 박스 */}
               <View
                 style={styles.modalContent}
                 onStartShouldSetResponder={() => true}
@@ -264,12 +323,9 @@ export default function HomeScreen() {
                     <X size={22} color="#4B5563" />
                   </TouchableOpacity>
                 </View>
-
                 <Text style={styles.modalDescription}>
                   AI에게 궁금한 여행지를 물어보면 맞춤 여행 정보를 답변해줘요.
                 </Text>
-
-                {/* 실제 글자를 타이핑하는 인풋창 */}
                 <TextInput
                   style={styles.modalInput}
                   placeholder="예: 도쿄, 뉴욕, 파리, 런던 등"
@@ -279,7 +335,6 @@ export default function HomeScreen() {
                   autoFocus={true}
                   onSubmitEditing={handleAskAI}
                 />
-
                 <TouchableOpacity
                   style={styles.askButton}
                   onPress={handleAskAI}
@@ -292,20 +347,34 @@ export default function HomeScreen() {
         </Modal>
       </View>
 
-      {/* 4. AI 큐레이션 섹션 (조건부 맞춤 타이틀 적용) */}
+      {/* 4. AI 큐레이션 섹션 */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View style={styles.row}>
             <Sparkles size={20} color="#2563EB" fill="#2563EB" />
-            {/* 💡 유저 기록 유무에 따라 와닿는 타이틀 가공 */}
             <Text style={styles.sectionTitle}>맞춤 여행지 추천</Text>
           </View>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>전체보기</Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={handleRefreshRecommend}
+            disabled={isRecommendPending || isRecommendRefetching}
+          >
+            <RotateCw
+              size={16}
+              color={
+                isRecommendPending || isRecommendRefetching
+                  ? "#9CA3AF"
+                  : "#6B7280"
+              }
+              style={
+                (isRecommendPending || isRecommendRefetching) &&
+                styles.rotatingIcon
+              }
+            />
           </TouchableOpacity>
         </View>
 
-        {isRecommendPending || isStatsPending ? (
+        {isRecommendPending || isStatsPending || isRecommendRefetching ? (
           <View style={styles.loadingWrapper}>
             <ActivityIndicator size="large" color="#2563EB" />
             {userData && (
@@ -347,7 +416,6 @@ export default function HomeScreen() {
                       {item.tag || `#${item.category || "여행"}`}
                     </Text>
                   </ImageBackground>
-
                   <View style={styles.cardContent}>
                     <Text style={styles.cardTitle} numberOfLines={1}>
                       {item.title}
@@ -355,10 +423,9 @@ export default function HomeScreen() {
                     <View style={styles.cardInfo}>
                       <Star size={14} color="#FBBF24" fill="#FBBF24" />
                       <Text style={styles.rating}>{item.rating || "4.5"}</Text>
-
-                      <Text style={styles.distance}>
-                        {` • ${item.distance}`}
-                      </Text>
+                      <Text
+                        style={styles.distance}
+                      >{` • ${item.distance}`}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -384,7 +451,6 @@ export default function HomeScreen() {
           <ChevronRight size={24} color="#FFF" />
         </View>
       </TouchableOpacity>
-
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -590,7 +656,7 @@ const styles = StyleSheet.create({
   askButton: {
     width: "100%",
     height: 48,
-    backgroundColor: "#4F46E5", // 성진님 서비스 포인트 컬러로 변경 가능
+    backgroundColor: "#4F46E5",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -600,5 +666,22 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  refreshText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#4B5563",
+  },
+  rotatingIcon: {
+    opacity: 0.6,
   },
 });

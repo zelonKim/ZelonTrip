@@ -10,7 +10,7 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
-  Linking, // 💡 외부 링크 연동을 위해 임포트 추가
+  Linking, 
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -168,7 +168,7 @@ export default function GeneratedPlanScreen() {
   if (isError || !planData) {
     return (
       <View style={[styles.container, styles.center]}>
-        <Text style={styles.errorText}>旅行 일정을 불러올 수 없습니다. 😢</Text>
+        <Text style={styles.errorText}>여행 일정을 불러올 수 없습니다. 😢</Text>
         <Text style={styles.errorSubText}>
           {error?.message || "존재하지 않는 일정입니다."}
         </Text>
