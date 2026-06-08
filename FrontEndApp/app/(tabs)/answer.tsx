@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
-import { useAppTheme } from "../_layout"; // 💡 기존 화면들과 동일한 전역 테마 훅 가져오기
+import { useAppTheme } from "../_layout"; 
 
 interface AIAnswerResponse {
   keyword: string;

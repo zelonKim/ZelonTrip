@@ -198,7 +198,10 @@ async def generate_trip(
 # 모든 여행 일정 목록 조회 API
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/trip/list", response_model=TripListResponse)
-async def get_trip_list(db: SessionDep, currentUser: CurrentUserDep):
+async def get_trip_list(
+    db: SessionDep,
+    currentUser: CurrentUserDep,
+):
 
     try:
         query = (
@@ -219,7 +222,11 @@ async def get_trip_list(db: SessionDep, currentUser: CurrentUserDep):
 # 특정 여행 일정 상세 조회 API
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/trip/{trip_id}", response_model=TripDetailResponse)
-async def get_trip_detail(trip_id: int, db: SessionDep, currentUser: CurrentUserDep):
+async def get_trip_detail(
+    trip_id: int,
+    db: SessionDep,
+    # currentUser: CurrentUserDep,
+):
     try:
         trip_plan = await db.get(models.Trip_Plan, trip_id)
 
