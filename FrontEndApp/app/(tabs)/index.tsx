@@ -32,8 +32,10 @@ import { useRouter } from "expo-router";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAppTheme } from "../_layout";
 
 export default function HomeScreen() {
+  const { isDarkMode } = useAppTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -46,10 +48,33 @@ export default function HomeScreen() {
     longitude: number;
   } | null>(null);
 
-  // 💡 새 알림 유무 확인용 배지 상태 추가
   const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  // 💡 수신된 알림을 로컬 기기에 저장하는 함수
+  // 💡 유기적 테마 컬러 매핑 오브젝트
+  const theme = {
+    container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
+    textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
+    textSub: { color: isDarkMode ? "#9CA3AF" : "#4B5563" },
+    iconColor: isDarkMode ? "#F9FAFB" : "#1F2937",
+    iconButtonBg: { backgroundColor: isDarkMode ? "#1F2937" : "#F3F4F6" },
+    searchBarBg: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    cardBg: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    modalContentBg: { backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF" },
+    modalInputBg: {
+      backgroundColor: isDarkMode ? "#374151" : "#F9FAFB",
+      borderColor: isDarkMode ? "#4B5563" : "#D1D5DB",
+      color: isDarkMode ? "#F9FAFB" : "#1F2937",
+    },
+    refreshButtonBg: { backgroundColor: isDarkMode ? "#1F2937" : "#F3F4F6" },
+    badgeBorderColor: { borderColor: isDarkMode ? "#1F2937" : "#F3F4F6" },
+  };
+
   const saveNotificationToStorage = async (
     notification: Notifications.Notification,
   ) => {
@@ -67,12 +92,11 @@ export default function HomeScreen() {
         planId: notification.request.content.data?.planId || null,
       };
 
-      // 최신 알림이 맨 위로 가도록 누적
       await AsyncStorage.setItem(
         "zelontrip_notifications",
         JSON.stringify([newNotificationItem, ...currentNotifications]),
       );
-      setHasNewNotification(true); // 배지 켜기
+      setHasNewNotification(true);
     } catch (error) {
       console.log("알림 저장 실패:", error);
     }
@@ -81,14 +105,12 @@ export default function HomeScreen() {
   useEffect(() => {
     getUserLocation();
 
-    // 💡 [핵심] 홈 스크린 마운트 시점에 푸시 알림 리스너를 연동하여 기기에 자동 저장되게 처리
     const notificationsListener = Notifications.addNotificationReceivedListener(
       (notification) => {
         saveNotificationToStorage(notification);
       },
     );
 
-    // 앱 켤 때 읽지 않은 알림이 있는지 체크하는 로직
     const checkBadgeStatus = async () => {
       const existingData = await AsyncStorage.getItem(
         "zelontrip_notifications",
@@ -226,7 +248,10 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.container, theme.container]}
+      showsVerticalScrollIndicator={false}
+    >
       {/* 1. 상단 헤더 섹션 */}
       <View style={styles.topBar}>
         <View>
@@ -244,21 +269,24 @@ export default function HomeScreen() {
                 style={{ marginLeft: 4 }}
               />
             ) : (
-              <Text style={styles.locationText}>{displayLocation}</Text>
+              <Text style={[styles.locationText, theme.textMain]}>
+                {displayLocation}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* 💡 [리팩토링] Bell 버튼 클릭 시 알림 전용 페이지로 라우팅 이동 및 알림 클릭 시 빨간 배지 초기화 */}
         <TouchableOpacity
-          style={styles.iconButton}
+          style={[styles.iconButton, theme.iconButtonBg]}
           onPress={() => {
             setHasNewNotification(false);
             router.push("/notification");
           }}
         >
-          <Bell size={24} color="#1F2937" strokeWidth={2} />
-          {hasNewNotification && <View style={styles.notificationBadge} />}
+          <Bell size={24} color={theme.iconColor} strokeWidth={2} />
+          {hasNewNotification && (
+            <View style={[styles.notificationBadge, theme.badgeBorderColor]} />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -271,29 +299,34 @@ export default function HomeScreen() {
             style={styles.loadingSpinner}
           />
         ) : (
-          <Text style={styles.userName}>
+          <Text style={[styles.userName, theme.textSub]}>
             {userData?.nickname
               ? `${userData.nickname}님,`
               : `${userData?.username?.split("@")[0]}님,`}
           </Text>
         )}
-        <Text style={styles.welcomeTitle}>어디로 떠나고 {"\n"}싶으신가요?</Text>
+        <Text style={[styles.welcomeTitle, theme.textMain]}>
+          어디로 떠나고 {"\n"}싶으신가요?
+        </Text>
       </View>
 
       <View style={{ flex: 1 }}>
         {/* 3. AI 스마트 검색 바 */}
         <View style={styles.searchContainer}>
           <Pressable
-            style={styles.searchBar}
+            style={[styles.searchBar, theme.searchBarBg]}
             onPress={() => setModalVisible(true)}
           >
             <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
             <View style={{ flex: 1, justifyContent: "center" }}>
-              <Text style={{ color: "#9CA3AF", fontSize: 16 }}>
+              <Text style={{ color: "#9CA3AF", fontSize: 14 }}>
                 궁금한 여행지를 물어보세요
               </Text>
             </View>
-            <SlidersHorizontal size={20} color="#4B5563" />
+            <SlidersHorizontal
+              size={20}
+              color={isDarkMode ? "#9CA3AF" : "#4B5563"}
+            />
           </Pressable>
         </View>
 
@@ -314,20 +347,22 @@ export default function HomeScreen() {
               style={styles.keyboardAvoidingWrapper}
             >
               <View
-                style={styles.modalContent}
+                style={[styles.modalContent, theme.modalContentBg]}
                 onStartShouldSetResponder={() => true}
               >
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>🤖 여행지 맞춤 정보 </Text>
+                  <Text style={[styles.modalTitle, theme.textMain]}>
+                    🤖 여행지 맞춤 정보{" "}
+                  </Text>
                   <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <X size={22} color="#4B5563" />
+                    <X size={22} color={isDarkMode ? "#9CA3AF" : "#4B5563"} />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.modalDescription}>
+                <Text style={[styles.modalDescription, theme.textSub]}>
                   AI에게 궁금한 여행지를 물어보면 맞춤 여행 정보를 답변해줘요.
                 </Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, theme.modalInputBg]}
                   placeholder="예: 도쿄, 뉴욕, 파리, 런던 등"
                   placeholderTextColor="#9CA3AF"
                   value={searchQuery}
@@ -352,10 +387,12 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <View style={styles.row}>
             <Sparkles size={20} color="#2563EB" fill="#2563EB" />
-            <Text style={styles.sectionTitle}>맞춤 여행지 추천</Text>
+            <Text style={[styles.sectionTitle, theme.textMain]}>
+              맞춤 여행지 추천
+            </Text>
           </View>
           <TouchableOpacity
-            style={styles.refreshButton}
+            style={[styles.refreshButton, theme.refreshButtonBg]}
             onPress={handleRefreshRecommend}
             disabled={isRecommendPending || isRecommendRefetching}
           >
@@ -364,7 +401,9 @@ export default function HomeScreen() {
               color={
                 isRecommendPending || isRecommendRefetching
                   ? "#9CA3AF"
-                  : "#6B7280"
+                  : isDarkMode
+                    ? "#9CA3AF"
+                    : "#6B7280"
               }
               style={
                 (isRecommendPending || isRecommendRefetching) &&
@@ -378,7 +417,7 @@ export default function HomeScreen() {
           <View style={styles.loadingWrapper}>
             <ActivityIndicator size="large" color="#2563EB" />
             {userData && (
-              <Text style={styles.loadingText}>
+              <Text style={[styles.loadingText, theme.textSub]}>
                 {userData.nickname
                   ? `${userData.nickname}`
                   : `${userData.username?.split("@")[0]}`}
@@ -396,7 +435,7 @@ export default function HomeScreen() {
               recommendedPlans.map((item: any, index: number) => (
                 <TouchableOpacity
                   key={item.id || index}
-                  style={styles.card}
+                  style={[styles.card, theme.cardBg]}
                   onPress={() => {
                     router.push({
                       pathname: "/answer",
@@ -417,22 +456,27 @@ export default function HomeScreen() {
                     </Text>
                   </ImageBackground>
                   <View style={styles.cardContent}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
+                    <Text
+                      style={[styles.cardTitle, theme.textMain]}
+                      numberOfLines={1}
+                    >
                       {item.title}
                     </Text>
                     <View style={styles.cardInfo}>
                       <Star size={14} color="#FBBF24" fill="#FBBF24" />
-                      <Text style={styles.rating}>{item.rating || "4.5"}</Text>
+                      <Text style={[styles.rating, theme.textMain]}>
+                        {item.rating || "4.5"}
+                      </Text>
                       <Text
-                        style={styles.distance}
+                        style={[styles.distance, theme.textSub]}
                       >{` • ${item.distance}`}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
               ))
             ) : (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>
+              <View style={[styles.emptyCard, theme.cardBg]}>
+                <Text style={[styles.emptyText, theme.textSub]}>
                   추천 가능한 여행지가 없습니다.
                 </Text>
               </View>
@@ -457,7 +501,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1 },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -475,14 +519,12 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#1F2937",
     marginLeft: 4,
   },
   iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -495,15 +537,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#EF4444",
     borderWidth: 2,
-    borderColor: "#F3F4F6",
   },
   welcomeSection: { paddingHorizontal: 20, marginBottom: 24, minHeight: 64 },
-  userName: { fontSize: 18, color: "#4B5563", fontWeight: "500" },
+  userName: { fontSize: 18, fontWeight: "500" },
   loadingSpinner: { alignSelf: "flex-start", marginVertical: 2 },
   welcomeTitle: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#1F2937",
     lineHeight: 36,
     marginTop: 4,
   },
@@ -511,15 +551,12 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
     paddingHorizontal: 16,
     borderRadius: 16,
     height: 56,
     borderWidth: 1,
-    borderColor: "#F3F4F6",
   },
   searchIcon: { marginRight: 12 },
-  searchInput: { flex: 1, fontSize: 16, color: "#1F2937" },
   section: { marginBottom: 32 },
   sectionHeader: {
     flexDirection: "row",
@@ -532,19 +569,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#1F2937",
     marginLeft: 8,
   },
-  seeAll: { fontSize: 14, color: "#6B7280" },
   cardList: { paddingLeft: 20 },
   card: {
     width: 220,
     marginRight: 16,
     borderRadius: 20,
-    backgroundColor: "#FFF",
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#F3F4F6",
   },
   cardImagePlaceholder: {
     height: 140,
@@ -553,11 +586,11 @@ const styles = StyleSheet.create({
   },
   cardTag: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: "rgba(255,255,255,0.8)",
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 2,
     borderRadius: 12,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
     color: "#2563EB",
   },
@@ -565,27 +598,26 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1F2937",
     marginBottom: 6,
   },
   cardInfo: { flexDirection: "row", alignItems: "center" },
-  rating: { fontSize: 14, fontWeight: "600", color: "#1F2937", marginLeft: 4 },
-  distance: { fontSize: 14, color: "#9CA3AF", marginLeft: 4 },
+  rating: { fontSize: 14, fontWeight: "600", marginLeft: 4 },
+  distance: { fontSize: 14, marginLeft: 4 },
   loadingWrapper: {
     paddingVertical: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  loadingText: { marginTop: 10, color: "#6B7280", fontSize: 14 },
+  loadingText: { marginTop: 10, fontSize: 14 },
   emptyCard: {
     flex: 1,
     padding: 20,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
     borderRadius: 20,
+    borderWidth: 1,
   },
-  emptyText: { color: "#9CA3AF", fontSize: 13 },
+  emptyText: { fontSize: 13 },
   banner: {
     marginHorizontal: 20,
     backgroundColor: "#2563EB",
@@ -613,18 +645,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  // 모달 스타일 추가
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // 뒷배경 블러 효과 대신 어둡게 처리
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
   },
   modalContent: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 20,
     shadowColor: "#000",
@@ -639,24 +668,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  modalTitle: { fontSize: 18, fontWeight: "bold", color: "#1F2937" },
-  modalDescription: { fontSize: 14, color: "#6B7280", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "bold" },
+  modalDescription: { fontSize: 14, marginBottom: 16 },
   modalInput: {
     width: "100%",
     height: 48,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
     borderRadius: 12,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: "#1F2937",
     marginBottom: 16,
-    backgroundColor: "#F9FAFB",
   },
   askButton: {
     width: "100%",
     height: 48,
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#2563EB",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -670,7 +696,6 @@ const styles = StyleSheet.create({
   refreshButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -679,7 +704,6 @@ const styles = StyleSheet.create({
   refreshText: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#4B5563",
   },
   rotatingIcon: {
     opacity: 0.6,

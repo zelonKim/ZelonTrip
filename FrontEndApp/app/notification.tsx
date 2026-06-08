@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { ChevronLeft, Trash2, MessageSquare } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppTheme } from "./_layout"; // 💡 루트 레이아웃 훅 가져오기
 
 interface NotificationItem {
   id: string;
@@ -24,6 +25,26 @@ export default function NotificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 가져오기
+
+  // 💡 알림함 화면 맞춤 유기적 테마 객체
+  const theme = {
+    container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
+    header: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    textMain: { color: isDarkMode ? "#F9FAFB" : "#1F2937" },
+    textSub: { color: isDarkMode ? "#9CA3AF" : "#4B5563" },
+    cardBg: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    iconWrapperBg: { backgroundColor: isDarkMode ? "#374151" : "#EFF6FF" },
+    iconColor: isDarkMode ? "#60A5FA" : "#2563EB",
+    headerIconColor: isDarkMode ? "#F9FAFB" : "#1F2937",
+    trashIconColor: isDarkMode ? "#6B7280" : "#9CA3AF",
+  };
 
   // 로컬 스토리지에서 알림 히스토리 로드
   const loadNotifications = async () => {
@@ -67,7 +88,7 @@ export default function NotificationScreen() {
 
     return (
       <Pressable
-        style={styles.card}
+        style={[styles.card, theme.cardBg]}
         onPress={() => {
           // 알림 클릭 시 등록된 플랜 상세 페이지로 연동 이동 (딥링크 역할 수행)
           if (item.planId) {
@@ -79,31 +100,40 @@ export default function NotificationScreen() {
         }}
       >
         <View style={styles.cardHeader}>
-          <View style={styles.iconWrapper}>
-            <MessageSquare size={16} color="#2563EB" />
+          <View style={[styles.iconWrapper, theme.iconWrapperBg]}>
+            <MessageSquare size={16} color={theme.iconColor} />
           </View>
-          <Text style={styles.dateText}>{formattedDate}</Text>
+          <Text
+            style={[
+              styles.dateText,
+              { color: isDarkMode ? "#6B7280" : "#9CA3AF" },
+            ]}
+          >
+            {formattedDate}
+          </Text>
           <TouchableOpacity onPress={() => deleteNotification(item.id)}>
-            <Trash2 size={16} color="#9CA3AF" />
+            <Trash2 size={16} color={theme.trashIconColor} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardBody}>{item.body}</Text>
+        <Text style={[styles.cardTitle, theme.textMain]}>{item.title}</Text>
+        <Text style={[styles.cardBody, theme.textSub]}>{item.body}</Text>
       </Pressable>
     );
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[styles.container, theme.container, { paddingTop: insets.top }]}
+    >
       {/* 커스텀 상단 헤더 내비게이션 바 */}
-      <View style={styles.header}>
+      <View style={[styles.header, theme.header]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <ChevronLeft size={24} color="#1F2937" />
+          <ChevronLeft size={24} color={theme.headerIconColor} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>알림함</Text>
+        <Text style={[styles.headerTitle, theme.textMain]}>알림함 🔔</Text>
         {notifications.length > 0 ? (
           <TouchableOpacity onPress={clearAllNotifications}>
             <Text style={styles.clearAllText}>전체 삭제</Text>
@@ -119,9 +149,17 @@ export default function NotificationScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>도착한 알림이 없습니다.</Text>
+            <Text
+              style={[
+                styles.emptyText,
+                { color: isDarkMode ? "#4B5563" : "#9CA3AF" },
+              ]}
+            >
+              도착한 알림이 없습니다.
+            </Text>
           </View>
         }
       />
@@ -130,51 +168,45 @@ export default function NotificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
     height: 56,
-    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderColor: "#E5E7EB",
   },
   backButton: { width: 40, height: 40, justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1F2937" },
+  headerTitle: { fontSize: 18, fontWeight: "700" },
   clearAllText: { fontSize: 13, color: "#e92d2d", fontWeight: "500" },
   listContainer: { padding: 16 },
   card: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   iconWrapper: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#EFF6FF",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 8,
   },
-  dateText: { flex: 1, fontSize: 12, color: "#9CA3AF" },
+  dateText: { flex: 1, fontSize: 12 },
   cardTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#1F2937",
     marginBottom: 4,
   },
-  cardBody: { fontSize: 13, color: "#4B5563", lineHeight: 18 },
+  cardBody: { fontSize: 13, lineHeight: 18 },
   emptyContainer: {
-    paddingVertical: 100,
+    paddingVertical: 300,
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyText: { color: "#9CA3AF", fontSize: 14 },
+  emptyText: { fontSize: 14 },
 });

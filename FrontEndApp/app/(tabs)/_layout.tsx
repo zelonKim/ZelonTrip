@@ -3,8 +3,12 @@ import { Tabs } from "expo-router";
 import { useColorScheme } from "@/components/useColorScheme";
 import { Home, CircleUser, CalendarSearch, Bot } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppTheme } from "../_layout";
+import { Platform } from "react-native";
 
 export default function TabLayout() {
+  const { isDarkMode } = useAppTheme();
+
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
@@ -17,12 +21,13 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           height: tabHeight,
-          paddingTop: 6,
-
+          backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
           borderTopWidth: 1,
-          borderTopColor: "#E5E7EB",
-          backgroundColor: "#FFFFFF",
+          borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+          paddingTop: 6,
         },
+        tabBarActiveTintColor: isDarkMode ? "#60A5FA" : "#2563EB", 
+        tabBarInactiveTintColor: isDarkMode ? "#9CA3AF" : "#6B7280", 
       }}
     >
       <Tabs.Screen

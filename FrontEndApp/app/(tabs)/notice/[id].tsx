@@ -11,8 +11,9 @@ import {
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Calendar } from "lucide-react-native"; // 💡 아이콘 라이브러리에 맞게 변경 가능
+import { ArrowLeft, Calendar, ChevronLeft } from "lucide-react-native";
 import { client } from "@/api/client";
+import { useAppTheme } from "../../_layout"; // 💡 루트 레이아웃 훅 가져오기
 
 interface NoticeDetail {
   id: number;
@@ -24,15 +25,34 @@ interface NoticeDetail {
 
 export default function NoticeDetailScreen() {
   const insets = useSafeAreaInsets();
-
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 가져오기
+
+  // 💡 공지사항 상세 화면 맞춤 유기적 테마 객체
+  const theme = {
+    container: { backgroundColor: isDarkMode ? "#111827" : "#FFFFFF" },
+    header: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#F3F4F6",
+    },
+    textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
+    textSub: { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+    textContent: { color: isDarkMode ? "#D1D5DB" : "#374151" }, // 본문 가독성 톤
+    divider: { backgroundColor: isDarkMode ? "#374151" : "#E5E7EB" },
+
+    // 🚨 중요 공지 배지 테마 (다크모드 시 톤다운된 레드 매칭)
+    badgeBg: { backgroundColor: isDarkMode ? "#2D1919" : "#FEE2E2" },
+    badgeText: { color: isDarkMode ? "#FCA5A5" : "#EF4444" },
+
+    iconColor: isDarkMode ? "#9CA3AF" : "#111827",
+    indicatorColor: isDarkMode ? "#60A5FA" : "#3B82F6",
+  };
 
   const {
     data: notice,
     isLoading,
     isError,
     error,
-    refetch,
   } = useQuery<NoticeDetail>({
     queryKey: ["noticeDetail", id],
     queryFn: async () => {
@@ -42,20 +62,22 @@ export default function NoticeDetailScreen() {
     enabled: !!id,
   });
 
-  // 4. 로딩 화면
+  // 로딩 화면
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>공지사항을 읽어오는 중입니다...</Text>
+      <View style={[styles.centerContainer, theme.container]}>
+        <ActivityIndicator size="large" color={theme.indicatorColor} />
+        <Text style={[styles.loadingText, theme.textSub]}>
+          공지사항을 읽어오는 중입니다...
+        </Text>
       </View>
     );
   }
 
-  // 5. 에러 화면
+  // 에러 화면
   if (isError || !notice) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[styles.centerContainer, theme.container]}>
         <Text style={styles.errorText}>
           공지사항을 불러오지 못했습니다.{"\n"}
           {error instanceof Error
@@ -73,16 +95,19 @@ export default function NoticeDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.container, theme.container]}>
+      {/* 상단 헤더 */}
+      <View
+        style={[styles.header, theme.header, { paddingTop: insets.top + 10 }]}
+      >
         <TouchableOpacity
           style={styles.headerBackButton}
           onPress={() => router.push("/(tabs)/notice")}
           activeOpacity={0.7}
         >
-          <ArrowLeft size={24} color="#111827" />
+          <ChevronLeft size={24} color={theme.iconColor} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <Text style={[styles.headerTitle, theme.textMain]} numberOfLines={1}>
           공지사항 상세
         </Text>
         <View style={{ width: 24 }} />
@@ -98,11 +123,20 @@ export default function NoticeDetailScreen() {
       >
         {/* 제목 섹션 */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>{notice.title}</Text>
+          {/* 💡 서버 데이터에 중요 공지 플래그가 참일 때 배지 노출 */}
+          {notice.is_important && (
+            <View style={[styles.importantBadge, theme.badgeBg]}>
+              <Text style={[styles.importantBadgeText, theme.badgeText]}>
+                중요
+              </Text>
+            </View>
+          )}
+
+          <Text style={[styles.title, theme.textMain]}>{notice.title}</Text>
 
           <View style={styles.metaRow}>
             <Calendar size={14} color="#9CA3AF" />
-            <Text style={styles.date}>
+            <Text style={[styles.date, theme.textSub]}>
               {new Date(notice.created_at).toLocaleDateString("ko-KR", {
                 year: "numeric",
                 month: "long",
@@ -114,12 +148,13 @@ export default function NoticeDetailScreen() {
           </View>
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, theme.divider]} />
 
         {/* 본문 내용 섹션 */}
         <View style={styles.contentSection}>
-          {/* 💡 줄바꿈(\n)이 깔끔하게 렌더링되도록 기본 Text의 특성을 활용 */}
-          <Text style={styles.content}>{notice.content}</Text>
+          <Text style={[styles.content, theme.textContent]}>
+            {notice.content}
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -129,7 +164,8 @@ export default function NoticeDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF", // 본문 가독성을 위해 흰색 배경 배경
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     flexDirection: "row",
@@ -137,9 +173,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
   },
   headerBackButton: {
     padding: 4,
@@ -147,7 +181,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
     textAlign: "center",
     flex: 1,
   },
@@ -159,7 +192,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   importantBadge: {
-    backgroundColor: "#FEE2E2",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -167,13 +199,11 @@ const styles = StyleSheet.create({
   },
   importantBadgeText: {
     fontSize: 11,
-    color: "#EF4444",
     fontWeight: "700",
   },
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#111827",
     lineHeight: 30,
     marginBottom: 12,
   },
@@ -184,12 +214,10 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: 13,
-    color: "#9CA3AF",
     fontWeight: "500",
   },
   divider: {
     height: 1,
-    backgroundColor: "#E5E7EB",
     marginBottom: 20,
   },
   contentSection: {
@@ -197,20 +225,17 @@ const styles = StyleSheet.create({
   },
   content: {
     fontSize: 15,
-    color: "#374151",
-    lineHeight: 24, // 💡 줄간격을 넉넉히 주어 가독성 확보
+    lineHeight: 24,
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
     padding: 20,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: "#6B7280",
   },
   errorText: {
     fontSize: 15,

@@ -10,9 +10,11 @@ import {
   ActivityIndicator,
   StyleSheet,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
+import { useAppTheme } from "../_layout"; // 💡 기존 화면들과 동일한 전역 테마 훅 가져오기
 
 interface AIAnswerResponse {
   keyword: string;
@@ -23,6 +25,48 @@ interface AIAnswerResponse {
 export default function AnswerScreen() {
   const router = useRouter();
   const { keyword } = useLocalSearchParams<{ keyword: string }>();
+  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 가져오기
+
+  // 💡 사용하시던 마이페이지/알림함 포맷과 100% 동일한 유기적 테마 객체 생성
+  const theme = {
+    container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
+    loadingContainer: { backgroundColor: isDarkMode ? "#111827" : "#FFFFFF" },
+    textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
+    textSub: { color: isDarkMode ? "#9CA3AF" : "#4B5563" },
+    cardBg: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    cardHeader: {
+      borderBottomColor: isDarkMode ? "#374151" : "#F3F4F6",
+    },
+    imageOverlay: {
+      backgroundColor: isDarkMode
+        ? "rgba(0, 0, 0, 0.55)"
+        : "rgba(0, 0, 0, 0.35)",
+    },
+    indicatorColor: isDarkMode ? "#60A5FA" : "#2563EB",
+  };
+
+  // 💡 마크다운 전용 내부 텍스트 스타일도 theme 객체(isDarkMode) 기준으로 스위칭
+  const markdownStyles = StyleSheet.create({
+    body: {
+      fontSize: 16,
+      color: isDarkMode ? "#E5E7EB" : "#374151",
+      lineHeight: 26,
+    },
+    strong: {
+      fontWeight: "bold",
+      color: isDarkMode ? "#FFFFFF" : "#1F2937",
+    },
+    paragraph: {
+      marginTop: 0,
+      marginBottom: 8,
+    },
+    heading1: { color: isDarkMode ? "#FFFFFF" : "#1F2937", marginVertical: 10 },
+    heading2: { color: isDarkMode ? "#FFFFFF" : "#1F2937", marginVertical: 8 },
+    heading3: { color: isDarkMode ? "#E5E7EB" : "#374151", marginVertical: 6 },
+  });
 
   const { data: aiAnswer, isPending } = useQuery<AIAnswerResponse>({
     queryKey: ["aiAnswer", keyword],
@@ -35,17 +79,17 @@ export default function AnswerScreen() {
 
   if (isPending) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>
-          AI가 {keyword} 여행 정보를{"\n"}가져오고 있어요. 🤖
+      <View style={[styles.loadingContainer, theme.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.indicatorColor} />
+        <Text style={[styles.loadingText, theme.textSub]}>
+          AI가 {keyword} 여행 정보를{"\n"}가져오고 있어요.
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, theme.container]}>
       <ScrollView
         style={styles.contentScroll}
         contentContainerStyle={styles.scrollContentContainer}
@@ -58,9 +102,10 @@ export default function AnswerScreen() {
             style={styles.headerImage}
             resizeMode="cover"
           />
-          <View style={styles.imageOverlay} />
+          {/* 다크모드 대응 딤 처리 오버레이 */}
+          <View style={[styles.imageOverlay, theme.imageOverlay]} />
 
-          <View style={styles.titleContainer}>
+          <View style={titleContainerStyle(isDarkMode)}>
             <Text style={styles.subtitleText}>AI 맞춤 여행 가이드</Text>
             <Text style={styles.titleText}>{keyword}</Text>
           </View>
@@ -68,13 +113,15 @@ export default function AnswerScreen() {
 
         {/* 2. 하단 텍스트 가이드북 내용 영역 */}
         <View style={styles.cardContainer}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
+          <View style={[styles.card, theme.cardBg]}>
+            <View style={[styles.cardHeader, theme.cardHeader]}>
               <Text style={styles.robotEmoji}>🤖</Text>
-              <Text style={styles.cardHeaderTitle}>AI의 특별 가이드</Text>
+              <Text style={[styles.cardHeaderTitle, theme.textMain]}>
+                AI의 특별 가이드
+              </Text>
             </View>
 
-            {/* 💡 기존 <Text> 대신 <Markdown>을 사용하고 전용 스타일을 주입합니다 */}
+            {/* 마크다운 스타일 주입 */}
             <Markdown style={markdownStyles}>{aiAnswer?.content}</Markdown>
           </View>
 
@@ -95,38 +142,26 @@ export default function AnswerScreen() {
   );
 }
 
-const markdownStyles = StyleSheet.create({
-  body: {
-    fontSize: 16,
-    color: "#374151",
-    lineHeight: 26,
-  },
-  strong: {
-    fontWeight: "bold",
-    color: "#1F2937",
-  },
-  paragraph: {
-    marginTop: 0,
-    marginBottom: 8,
-  },
+// 다크모드 시 타이틀 텍스트 가시성 보정을 위한 유동 함수 스타일 (필요시)
+const titleContainerStyle = (isDarkMode: boolean) => ({
+  position: "absolute" as const,
+  bottom: 34,
+  left: 20,
 });
 
-// 🎨 2. 기본 레이아웃 스타일시트
+// 🎨 기존 구조 기반 스타일시트 (하드코딩 컬러값 제거 및 스타일 정제)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: "#4B5563",
     textAlign: "center",
     lineHeight: 22,
     fontWeight: "500",
@@ -148,7 +183,6 @@ const styles = StyleSheet.create({
   },
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.35)",
   },
   backButton: {
     position: "absolute",
@@ -161,11 +195,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
-  },
-  titleContainer: {
-    position: "absolute",
-    bottom: 34,
-    left: 20,
   },
   subtitleText: {
     fontSize: 14,
@@ -184,21 +213,24 @@ const styles = StyleSheet.create({
     marginTop: -16,
   },
   card: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: { elevation: 3 },
+    }),
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
     paddingBottom: 12,
   },
   robotEmoji: {
@@ -208,13 +240,12 @@ const styles = StyleSheet.create({
   cardHeaderTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#1F2937",
   },
   closeButton: {
     marginTop: 20,
     width: "100%",
     height: 52,
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#2563EB",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",

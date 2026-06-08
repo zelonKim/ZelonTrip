@@ -19,10 +19,27 @@ import {
   Inbox,
 } from "lucide-react-native";
 import { client } from "@/api/client";
+import { useAppTheme } from "../_layout"; // 💡 루트 레이아웃 훅 가져오기
 
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태
+
+  // 💡 유기적 테마 객체
+  const theme = {
+    container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
+    textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
+    textSub: { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+    cardBg: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    badgeBg: { backgroundColor: isDarkMode ? "#374151" : "#EFF6FF" },
+    badgeText: { color: isDarkMode ? "#60A5FA" : "#2563EB" },
+    overviewBox: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
+    iconColor: isDarkMode ? "#9CA3AF" : "#6B7280",
+  };
 
   const fetchTripList = async () => {
     const response = await client.get("/v1/trip/list");
@@ -43,21 +60,22 @@ export default function PlansScreen() {
 
   if (isPending) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <View style={[styles.container, styles.center, theme.container]}>
         <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>
-          나의 여행 일정들을 불러오는 중... ✈️
+        <Text style={[styles.loadingText, theme.textSub]}>
+          나의 여행 일정들을 불러오는 중...
         </Text>
       </View>
     );
   }
 
-  // 💡 4. 네트워크 에러 발생 시 예외 처리
   if (isError) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <View style={[styles.container, styles.center, theme.container]}>
         <Text style={styles.errorText}>일정을 불러오지 못했습니다. 😭</Text>
-        <Text style={styles.errorSubText}>{error?.message}</Text>
+        <Text style={[styles.errorSubText, theme.textSub]}>
+          {error?.message}
+        </Text>
       </View>
     );
   }
@@ -65,7 +83,7 @@ export default function PlansScreen() {
   const plans = data?.trips || [];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, theme.container]}>
       <ScrollView
         contentContainerStyle={{
           paddingTop: insets.top + 20,
@@ -75,20 +93,21 @@ export default function PlansScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>나의 여행 일정 🗓️</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerTitle, theme.textMain]}>
+            나의 여행 일정 🗓️
+          </Text>
+          <Text style={[styles.headerSubtitle, theme.textSub]}>
             AI가 생성한 맞춤형 여행 일정들이에요.
           </Text>
         </View>
 
-        {/* 💡 5. 데이터가 빈 배열일 때(Empty State) 텅 화면 처리 */}
         {plans.length === 0 ? (
           <View style={styles.emptyBox}>
-            <Inbox size={40} color="#9CA3AF" />
-            <Text style={styles.emptyText}>
+            <Inbox size={40} color={isDarkMode ? "#374151" : "#9CA3AF"} />
+            <Text style={[styles.emptyText, theme.textMain]}>
               아직 생성된 여행 일정이 없습니다.
             </Text>
-            <Text style={styles.emptySubText}>
+            <Text style={[styles.emptySubText, theme.textSub]}>
               첫 번째 AI 추천 일정을 생성해 보세요!
             </Text>
           </View>
@@ -96,19 +115,23 @@ export default function PlansScreen() {
           plans.map((plan: any) => (
             <TouchableOpacity
               key={plan.id}
-              style={styles.card}
+              style={[styles.card, theme.cardBg]}
               activeOpacity={0.8}
               onPress={() => handlePlanPress(plan.id)}
             >
               <View style={styles.cardTopRow}>
-                <View style={styles.locationBadge}>
-                  <MapPin size={14} color="#2563EB" />
-                  <Text style={styles.locationText}>{plan.location}</Text>
+                <View style={[styles.locationBadge, theme.badgeBg]}>
+                  <MapPin
+                    size={14}
+                    color={isDarkMode ? "#60A5FA" : "#2563EB"}
+                  />
+                  <Text style={[styles.locationText, theme.badgeText]}>
+                    {plan.location}
+                  </Text>
                 </View>
-                {/* 💡 itinerary 배열의 길이를 활용해 'X박 Y일' 기간을 동적으로 연출 */}
                 <View style={styles.dateRow}>
                   <CalendarDays size={13} color="#9CA3AF" />
-                  <Text style={styles.dateText}>
+                  <Text style={[styles.dateText, theme.textSub]}>
                     {plan.itinerary?.length === 1
                       ? "당일치기 "
                       : `${plan.itinerary?.length - 1}박 ${plan.itinerary?.length}일`}
@@ -116,17 +139,23 @@ export default function PlansScreen() {
                 </View>
               </View>
 
-              <Text style={styles.cardTitle} numberOfLines={2}>
+              <Text
+                style={[styles.cardTitle, theme.textMain]}
+                numberOfLines={2}
+              >
                 {plan.title}
               </Text>
 
-              <View style={styles.overviewBox}>
+              <View style={[styles.overviewBox, theme.overviewBox]}>
                 <Compass
                   size={16}
-                  color="#6B7280"
+                  color={theme.iconColor}
                   style={styles.overviewIcon}
                 />
-                <Text style={styles.cardOverview} numberOfLines={3}>
+                <Text
+                  style={[styles.cardOverview, theme.textSub]}
+                  numberOfLines={3}
+                >
                   {plan.overview}
                 </Text>
               </View>
@@ -144,53 +173,32 @@ export default function PlansScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center", padding: 20 },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
+  loadingText: { marginTop: 12, fontSize: 14, fontWeight: "500" },
   errorText: {
     fontSize: 16,
     fontWeight: "700",
     color: "#EF4444",
     marginBottom: 4,
   },
-  errorSubText: { fontSize: 13, color: "#9CA3AF" },
-
+  errorSubText: { fontSize: 13 },
   header: { marginBottom: 24 },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 6,
-  },
-  headerSubtitle: { fontSize: 14, color: "#6B7280", lineHeight: 20 },
-
-  // 텅 화면 스타일
+  headerTitle: { fontSize: 24, fontWeight: "700", marginBottom: 6 },
+  headerSubtitle: { fontSize: 14, lineHeight: 20 },
   emptyBox: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 60,
     gap: 6,
   },
-  emptyText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#4B5563",
-    marginTop: 10,
-  },
-  emptySubText: { fontSize: 13, color: "#9CA3AF" },
-
+  emptyText: { fontSize: 15, fontWeight: "600", marginTop: 10 },
+  emptySubText: { fontSize: 13 },
   card: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 18,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -210,40 +218,28 @@ const styles = StyleSheet.create({
   locationBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EFF6FF",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
   },
-  locationText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#2563EB",
-    marginLeft: 4,
-  },
+  locationText: { fontSize: 11, fontWeight: "600", marginLeft: 4 },
   dateRow: { flexDirection: "row", alignItems: "center" },
-  dateText: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginLeft: 4,
-    fontWeight: "500",
-  },
+  dateText: { fontSize: 12, marginLeft: 4, fontWeight: "500" },
   cardTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 10,
     lineHeight: 24,
+    paddingLeft: 10,
   },
   overviewBox: {
     flexDirection: "row",
-    backgroundColor: "#F9FAFB",
     borderRadius: 10,
     padding: 12,
     marginBottom: 14,
   },
   overviewIcon: { marginTop: 2, marginRight: 8 },
-  cardOverview: { flex: 1, fontSize: 13, color: "#4B5563", lineHeight: 18 },
+  cardOverview: { flex: 1, fontSize: 13, lineHeight: 18 },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",

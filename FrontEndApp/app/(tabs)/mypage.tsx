@@ -17,7 +17,6 @@ import {
   User,
   Award,
   Footprints,
-  Bell,
   Megaphone,
   MessageSquare,
   ChevronRight,
@@ -29,16 +28,58 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/api/client";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
+// 💡 루트에서 만든 전역 테마 훅 임포트
+import { useAppTheme } from "../_layout";
+
 export default function MyPageScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  const [isNotificationEnabled, setIsNotificationEnabled] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputNickname, setInputNickname] = useState("");
 
   const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+
+  // 💡 전역 Context 훅 사용
+  const { isDarkMode, toggleDarkMode } = useAppTheme();
+
+  // 💡 테마 스타일에 전역 isDarkMode 상태 적용
+  const theme = {
+    container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
+    header: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderBottomWidth: 1,
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    card: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
+    textSub: { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+    textSection: { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+    border: { borderColor: isDarkMode ? "#374151" : "#E5E7EB" },
+    dividerLight: { backgroundColor: isDarkMode ? "#374151" : "#F3F4F6" },
+    iconColor: isDarkMode ? "#9CA3AF" : "#4B5563",
+    iconUserColor: isDarkMode ? "#60A5FA" : "#2563EB",
+    avatarBg: { backgroundColor: isDarkMode ? "#374151" : "#EFF6FF" },
+    badgeBg: {
+      backgroundColor: isDarkMode ? "#374151" : "#EFF6FF",
+      borderColor: isDarkMode ? "#4B5563" : "#DBEAFE",
+    },
+    badgeText: { color: isDarkMode ? "#60A5FA" : "#2563EB" },
+    editBadgeBg: { backgroundColor: isDarkMode ? "#374151" : "#F3F4F6" },
+
+    // 💡 모달 컴포넌트 전용 다크모드 스타일 추가
+    modalBg: { backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF" },
+    inputBg: {
+      backgroundColor: isDarkMode ? "#111827" : "#F9FAFB",
+      borderColor: isDarkMode ? "#374151" : "#D1D5DB",
+    },
+    cancelBtnBg: { backgroundColor: isDarkMode ? "#374151" : "#F3F4F6" },
+    placeholderColor: isDarkMode ? "#4B5563" : "#9CA3AF",
+  };
 
   const feedbackMutation = useMutation({
     mutationFn: async (content: string) => {
@@ -46,7 +87,7 @@ export default function MyPageScreen() {
       return response.data;
     },
     onSuccess: () => {
-      Alert.alert("✅ 접수 완료 ", "피드백이 성공적으로 접수되었습니다!");
+      Alert.alert("✅ 접수 완료", "피드백이 성공적으로 접수되었습니다!");
       setIsFeedbackModalVisible(false);
       setFeedbackText("");
     },
@@ -182,10 +223,12 @@ export default function MyPageScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, theme.container]}>
       {/* 헤더 영역 */}
-      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <Text style={styles.headerTitle}>마이페이지</Text>
+      <View
+        style={[styles.header, theme.header, { paddingTop: insets.top + 20 }]}
+      >
+        <Text style={[styles.headerTitle, theme.textMain]}>마이페이지</Text>
       </View>
 
       <ScrollView
@@ -196,11 +239,11 @@ export default function MyPageScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* 👣 [1. 프로필 & 취향 배지 영역] */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, theme.card]}>
           <View style={styles.profileHeader}>
             <View style={styles.avatarRow}>
-              <View style={styles.avatar}>
-                <User size={28} color="#2563EB" />
+              <View style={[styles.avatar, theme.avatarBg]}>
+                <User size={28} color={theme.iconUserColor} />
               </View>
               <View style={styles.profileInfo}>
                 {isUserPending ? (
@@ -213,14 +256,14 @@ export default function MyPageScreen() {
                   <>
                     {userData?.nickname ? (
                       <View style={styles.nicknameContainer}>
-                        <Text style={styles.profileName}>
+                        <Text style={[styles.profileName, theme.textMain]}>
                           {userData.nickname}
                         </Text>
                         <TouchableOpacity
-                          style={styles.editBadge}
+                          style={[styles.editBadge, theme.editBadgeBg]}
                           onPress={openNicknameModal}
                         >
-                          <Text style={styles.editBadgeText}>
+                          <Text style={[styles.editBadgeText, theme.textSub]}>
                             닉네임 수정하기
                           </Text>
                         </TouchableOpacity>
@@ -235,24 +278,28 @@ export default function MyPageScreen() {
                         </Text>
                       </TouchableOpacity>
                     )}
-                    <Text style={styles.profileEmail}>{userData.username}</Text>
+                    <Text style={[styles.profileEmail, theme.textSub]}>
+                      {userData?.username}
+                    </Text>
                   </>
                 )}
               </View>
             </View>
           </View>
 
-          <View style={styles.dividerLight} />
+          <View style={[styles.dividerLight, theme.dividerLight]} />
+
           {/* AI 취향 페르소나 배지 라인 */}
           <View style={styles.badgeSection}>
             <View style={styles.badgeTitleRow}>
-              <Award size={16} color={"#374151"} />
-              <Text style={styles.badgeSectionTitle}>취득한 뱃지</Text>
+              <Award size={16} color={theme.iconColor} />
+              <Text style={[styles.badgeSectionTitle, theme.textMain]}>
+                취득한 뱃지
+              </Text>
             </View>
             <View style={styles.badgeRow}>
-              {/* 1. 방문 도시 수에 따른 등급 배지 */}
-              <View style={styles.personaBadge}>
-                <Text style={styles.personaBadgeText}>
+              <View style={[styles.personaBadge, theme.badgeBg]}>
+                <Text style={[styles.personaBadgeText, theme.badgeText]}>
                   {isStatsPending
                     ? "⏳ 분석 중..."
                     : statsData?.total_location >= 5
@@ -263,10 +310,9 @@ export default function MyPageScreen() {
                 </Text>
               </View>
 
-              {/* 2. 총 누적 일수 기반 배지 */}
               {(statsData?.total_days ?? 0) > 0 && (
-                <View style={styles.personaBadge}>
-                  <Text style={styles.personaBadgeText}>
+                <View style={[styles.personaBadge, theme.badgeBg]}>
+                  <Text style={[styles.personaBadgeText, theme.badgeText]}>
                     ⏱️ 누적 {statsData?.total_days}일째 여행 중
                   </Text>
                 </View>
@@ -276,22 +322,25 @@ export default function MyPageScreen() {
         </View>
 
         <Text style={{ marginTop: 2 }}></Text>
-        <View style={styles.menuGroupCard}>
+
+        {/* 👣 [2. 여행 발자국 영역] */}
+        <View style={[styles.menuGroupCard, theme.card]}>
           <View style={styles.statsRow}>
             <View style={styles.statsIconWrapper}></View>
-
             <View style={styles.statsContent}>
               <View style={{ flexDirection: "row", gap: 6 }}>
-                <Footprints size={18} color="#4B5563" />
+                <Footprints size={18} color={theme.iconColor} />
                 <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: "600",
-                    color: "#374151",
-                    marginBottom: 3,
-                    marginLeft: 2,
-                    includeFontPadding: false,
-                  }}
+                  style={[
+                    {
+                      fontSize: 13,
+                      fontWeight: "600",
+                      marginBottom: 3,
+                      marginLeft: 2,
+                      includeFontPadding: false,
+                    },
+                    theme.textMain,
+                  ]}
                 >
                   나의 여행 발자국
                 </Text>
@@ -304,12 +353,12 @@ export default function MyPageScreen() {
                   style={styles.statsLoadingSpinner}
                 />
               ) : (
-                <Text style={styles.statsSubText}>
+                <Text style={[styles.statsSubText, theme.textSub]}>
                   지금까지 ZelonTrip과 함께{" "}
                   <Text style={styles.highlightText}>
-                    {statsData?.total_location ?? 0}개의 여행지
+                    {statsData?.total_location ?? 0}개
                   </Text>
-                  를{"\n"}탐방했어요!
+                  의 여행지 를 탐방했어요!
                 </Text>
               )}
             </View>
@@ -317,24 +366,26 @@ export default function MyPageScreen() {
         </View>
 
         {/* ⚙️ [3. 앱 설정 및 지원] */}
-        <Text style={styles.sectionTitle}>앱 설정 및 지원</Text>
-        <View style={styles.menuGroupCard}>
-          {/* 알림 설정 */}
+        <Text style={[styles.sectionTitle, theme.textSection]}>
+          앱 설정 및 지원
+        </Text>
+        <View style={[styles.menuGroupCard, theme.card]}>
+          {/* 다크모드 설정 스위치 */}
           <View style={styles.menuItem}>
             <View style={styles.menuItemLeft}>
-              <Moon size={20} color="#4B5563" />
-              <Text style={styles.menuText}>어두운 배경</Text>
+              <Moon size={20} color={theme.iconColor} />
+              <Text style={[styles.menuText, theme.textMain]}>다크 모드</Text>
             </View>
             <Switch
-              trackColor={{ false: "#E5E7EB", true: "#93C5FD" }}
-              thumbColor={isNotificationEnabled ? "#2563EB" : "#F3F4F6"}
+              trackColor={{ false: "#E5E7EB", true: "#60A5FA" }}
+              thumbColor={isDarkMode ? "#2563EB" : "#F3F4F6"}
               ios_backgroundColor="#E5E7EB"
-              onValueChange={setIsNotificationEnabled}
-              value={isNotificationEnabled}
+              onValueChange={toggleDarkMode}
+              value={isDarkMode}
             />
           </View>
 
-          <View style={styles.dividerMenu} />
+          <View style={[styles.dividerMenu, theme.border]} />
 
           {/* 공지사항 */}
           <TouchableOpacity
@@ -342,13 +393,13 @@ export default function MyPageScreen() {
             onPress={() => router.push("/(tabs)/notice")}
           >
             <View style={styles.menuItemLeft}>
-              <Megaphone size={20} color="#4B5563" />
-              <Text style={styles.menuText}>공지사항</Text>
+              <Megaphone size={20} color={theme.iconColor} />
+              <Text style={[styles.menuText, theme.textMain]}>공지사항</Text>
             </View>
             <ChevronRight size={16} color="#9CA3AF" />
           </TouchableOpacity>
 
-          <View style={styles.dividerMenu} />
+          <View style={[styles.dividerMenu, theme.border]} />
 
           {/* 피드백 보내기 */}
           <TouchableOpacity
@@ -356,8 +407,10 @@ export default function MyPageScreen() {
             onPress={handleFeedbackMenuPress}
           >
             <View style={styles.menuItemLeft}>
-              <MessageSquare size={20} color="#4B5563" />
-              <Text style={styles.menuText}>피드백 보내기</Text>
+              <MessageSquare size={20} color={theme.iconColor} />
+              <Text style={[styles.menuText, theme.textMain]}>
+                피드백 보내기
+              </Text>
             </View>
             <ChevronRight size={16} color="#9CA3AF" />
           </TouchableOpacity>
@@ -368,7 +421,7 @@ export default function MyPageScreen() {
           <TouchableOpacity onPress={handleLogout}>
             <Text style={styles.accountText}>로그아웃</Text>
           </TouchableOpacity>
-          <Text style={styles.accountDivider}>|</Text>
+          <Text style={[styles.accountDivider, theme.border]}>|</Text>
           <TouchableOpacity onPress={handleDeactivate}>
             <Text style={styles.accountText}>회원탈퇴</Text>
           </TouchableOpacity>
@@ -386,16 +439,16 @@ export default function MyPageScreen() {
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>닉네임 설정</Text>
-            <Text style={styles.modalSubtitle}>
+          <View style={[styles.modalContainer, theme.modalBg]}>
+            <Text style={[styles.modalTitle, theme.textMain]}>닉네임 설정</Text>
+            <Text style={[styles.modalSubtitle, theme.textSub]}>
               새로운 닉네임을 입력해 주세요.
             </Text>
 
             <TextInput
-              style={styles.nicknameInput}
+              style={[styles.nicknameInput, theme.inputBg, theme.textMain]}
               placeholder="닉네임 입력"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={theme.placeholderColor}
               value={inputNickname}
               onChangeText={setInputNickname}
               maxLength={15}
@@ -404,11 +457,17 @@ export default function MyPageScreen() {
 
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalCancelButton]}
+                style={[
+                  styles.modalButton,
+                  styles.modalCancelButton,
+                  theme.cancelBtnBg,
+                ]}
                 onPress={() => setIsModalVisible(false)}
                 disabled={nicknameMutation.isPending}
               >
-                <Text style={styles.modalCancelButtonText}>취소</Text>
+                <Text style={[styles.modalCancelButtonText, theme.textMain]}>
+                  취소
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalSaveButton]}
@@ -426,6 +485,7 @@ export default function MyPageScreen() {
         </View>
       </Modal>
 
+      {/* 피드백 모달 */}
       <Modal
         visible={isFeedbackModalVisible}
         transparent={true}
@@ -438,17 +498,25 @@ export default function MyPageScreen() {
             keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 50}
             style={styles.keyboardAvoidingWrapper}
           >
-            <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>💬 피드백 보내기 </Text>
-              <Text style={styles.modalSubtitle}>
+            <View style={[styles.modalContainer, theme.modalBg]}>
+              <Text style={[styles.modalTitle, theme.textMain]}>
+                💬 피드백 보내기
+              </Text>
+              <Text
+                style={[
+                  styles.modalSubtitle,
+                  theme.textSub,
+                  { textAlign: "center" },
+                ]}
+              >
                 ZelonTrip을 이용하면서 좋았던 점이나 {"\n"}불편했던 점을
                 자유롭게 작성해주세요.
               </Text>
 
               <TextInput
-                style={styles.feedbackInput}
+                style={[styles.feedbackInput, theme.inputBg, theme.textMain]}
                 placeholder="여기에 내용을 입력해 주세요 (최대 300자)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={theme.placeholderColor}
                 value={feedbackText}
                 onChangeText={setFeedbackText}
                 maxLength={300}
@@ -460,14 +528,20 @@ export default function MyPageScreen() {
 
               <View style={styles.modalButtonRow}>
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.modalCancelButton]}
+                  style={[
+                    styles.modalButton,
+                    styles.modalCancelButton,
+                    theme.cancelBtnBg,
+                  ]}
                   onPress={() => {
                     setIsFeedbackModalVisible(false);
                     setFeedbackText("");
                   }}
                   disabled={feedbackMutation.isPending}
                 >
-                  <Text style={styles.modalCancelButtonText}>취소</Text>
+                  <Text style={[styles.modalCancelButtonText, theme.textMain]}>
+                    취소
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.modalSaveButton]}
@@ -490,25 +564,14 @@ export default function MyPageScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
-  header: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  headerTitle: { fontSize: 24, fontWeight: "700", color: "#111827" },
+  container: { flex: 1 },
+  header: { paddingHorizontal: 20, paddingBottom: 16 },
+  headerTitle: { fontSize: 24, fontWeight: "700" },
   scrollContainer: { paddingHorizontal: 20, paddingTop: 20 },
-
-  // 1. 프로필 카드 스타일
   profileCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -522,14 +585,12 @@ const styles = StyleSheet.create({
   profileHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   avatarRow: { flexDirection: "row", alignItems: "center" },
   avatar: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: "#EFF6FF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -539,20 +600,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 2,
   },
-  profileName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
+  profileName: { fontSize: 18, fontWeight: "700" },
   editBadge: {
-    backgroundColor: "#F3F4F6",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginLeft: 10,
   },
-  editBadgeText: { fontSize: 11, color: "#6B7280", fontWeight: "600" },
-
+  editBadgeText: { fontSize: 11, fontWeight: "600" },
   setNicknameButton: {
     backgroundColor: "#EFF6FF",
     paddingHorizontal: 12,
@@ -563,55 +618,38 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginBottom: 4,
   },
-  setNicknameButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2563EB",
-  },
-  profileEmail: { fontSize: 13, color: "#9CA3AF", fontWeight: "500" },
+  setNicknameButtonText: { fontSize: 14, fontWeight: "600", color: "#2563EB" },
+  profileEmail: { fontSize: 13, fontWeight: "500" },
   loadingSpinner: { alignSelf: "flex-start", marginTop: 4 },
-  dividerLight: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 14 },
+  dividerLight: { height: 1, marginVertical: 14 },
   badgeSection: { width: "100%" },
   badgeTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
   },
-  badgeSectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginLeft: 6,
-    color: "#374151",
-  },
+  badgeSectionTitle: { fontSize: 13, fontWeight: "600", marginLeft: 6 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   personaBadge: {
-    backgroundColor: "#EFF6FF",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#DBEAFE",
   },
   personaBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#2563EB",
     includeFontPadding: false,
   },
-
   sectionTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#6B7280",
     marginBottom: 10,
     paddingLeft: 2,
   },
-
   menuGroupCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
     paddingHorizontal: 16,
     marginBottom: 24,
     ...Platform.select({
@@ -624,19 +662,12 @@ const styles = StyleSheet.create({
       android: { elevation: 1 },
     }),
   },
-
   statsRow: { flexDirection: "row", alignItems: "center", paddingVertical: 16 },
   statsIconWrapper: { marginRight: 6 },
   statsContent: { flex: 1 },
-  statsSubText: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  statsLoadingSpinner: { alignSelf: "flex-start", marginTop: 6 }, // 💡 통계용 로딩 스피너 스타일 추가
+  statsSubText: { fontSize: 13, marginTop: 4, lineHeight: 18 },
+  statsLoadingSpinner: { alignSelf: "flex-start", marginTop: 6 },
   highlightText: { color: "#2563EB", fontWeight: "600" },
-
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -647,12 +678,10 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#374151",
     marginLeft: 12,
     includeFontPadding: false,
   },
-  dividerMenu: { height: 1, backgroundColor: "#E5E7EB" },
-
+  dividerMenu: { height: 1 },
   accountManagementRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -661,7 +690,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   accountText: { fontSize: 13, color: "#9CA3AF", fontWeight: "500" },
-  accountDivider: { fontSize: 12, color: "#E5E7EB", marginHorizontal: 12 },
+  accountDivider: { fontSize: 12, marginHorizontal: 12 },
   versionText: {
     fontSize: 12,
     color: "#9CA3AF",
@@ -669,7 +698,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 4,
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
@@ -678,10 +706,8 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "85%",
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 28,
-
     alignItems: "center",
     ...Platform.select({
       ios: {
@@ -696,21 +722,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 12,
   },
-  modalSubtitle: { fontSize: 13, color: "#6B7280", marginBottom: 16 },
+  modalSubtitle: { fontSize: 13, marginBottom: 16 },
   nicknameInput: {
     width: "100%",
     height: 48,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
     borderRadius: 8,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: "#111827",
     marginBottom: 20,
-    backgroundColor: "#F9FAFB",
   },
   modalButtonRow: { flexDirection: "row", gap: 10, width: "100%" },
   modalButton: {
@@ -720,22 +742,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  modalCancelButton: { backgroundColor: "#F3F4F6" },
-  modalCancelButtonText: { color: "#4B5563", fontSize: 14, fontWeight: "600" },
+  modalCancelButton: {},
+  modalCancelButtonText: { fontSize: 14, fontWeight: "600" },
   modalSaveButton: { backgroundColor: "#2563EB" },
   modalSaveButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
   feedbackInput: {
     width: "100%",
     height: 120,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: "#111827",
     marginBottom: 20,
-    backgroundColor: "#F9FAFB",
   },
   keyboardAvoidingWrapper: {
     width: "100%",

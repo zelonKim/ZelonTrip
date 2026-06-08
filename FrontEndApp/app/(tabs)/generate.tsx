@@ -30,6 +30,7 @@ import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { registerForPushNotificationsAsync } from "@/services/notifications";
 import { getDeviceId } from "@/services/helpers";
+import { useAppTheme } from "../_layout"; // 💡 루트 레이아웃에서 전역 다크모드 훅 가져오기
 
 // 옵션 데이터 상수 정의
 const MBTI_OPTIONS = [
@@ -90,8 +91,47 @@ Notifications.setNotificationHandler({
 export default function GenerateScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 구독
 
-  // 💡 [리팩토링 핵심] 미리 발급받은 푸시 토큰과 디바이스 ID를 보관할 상태 공간
+  // 💡 유기적 다크모드 테마 컬러 매핑 오버라이딩 객체
+  const theme = {
+    container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
+    textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
+    textSub: { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+    textLabel: { color: isDarkMode ? "#E5E7EB" : "#374151" },
+    cardBg: {
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    inputBg: {
+      backgroundColor: isDarkMode ? "#111827" : "#FFFFFF",
+      borderColor: isDarkMode ? "#374151" : "#D1D5DB",
+      color: isDarkMode ? "#F9FAFB" : "#111827",
+    },
+    chipBg: {
+      backgroundColor: isDarkMode ? "#374151" : "#F3F4F6",
+    },
+    chipText: {
+      color: isDarkMode ? "#D1D5DB" : "#4B5563",
+    },
+    activeChipBg: {
+      backgroundColor: isDarkMode ? "rgba(37, 99, 235, 0.15)" : "#EFF6FF",
+      borderColor: "#2563EB",
+    },
+    activeChipText: {
+      color: isDarkMode ? "#60A5FA" : "#2563EB",
+    },
+    dividerLine: {
+      backgroundColor: isDarkMode ? "#374151" : "#E5E7EB",
+    },
+    counterBtnBg: {
+      backgroundColor: isDarkMode ? "#374151" : "#F3F4F6",
+    },
+    counterBtnText: {
+      color: isDarkMode ? "#F9FAFB" : "#374151",
+    },
+  };
+
   const [cachedPushToken, setCachedPushToken] = useState<string | null>(null);
   const [cachedDeviceId, setCachedDeviceId] = useState<string | null>(null);
 
@@ -100,7 +140,6 @@ export default function GenerateScreen() {
   );
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
-  // 💡 [리팩토링 핵심] 앱이 켜지자마자 백그라운드에서 토큰을 미리 따둡니다. (생성 버튼 누를 때 지연 방지)
   useEffect(() => {
     const prepareNotificationTokens = async () => {
       try {
@@ -115,7 +154,6 @@ export default function GenerateScreen() {
 
     prepareNotificationTokens();
 
-    // 푸시 수신 및 알림 클릭 리스너 설정
     notificationsListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
         console.log("알림 수신:", notification);
@@ -136,7 +174,6 @@ export default function GenerateScreen() {
     };
   }, []);
 
-  // 💡 성공 시 즉시 캐싱된 토큰으로 푸시를 쏘는 함수 (비동기 await 제거로 렌더링 블로킹 방지)
   const sendSuccessNotification = (planId: string) => {
     if (!cachedPushToken || !cachedDeviceId) {
       console.log("미리 준비된 푸시 토큰이 없어 알림 발송을 건너뜁니다.");
@@ -148,11 +185,10 @@ export default function GenerateScreen() {
         pushToken: cachedPushToken,
         deviceId: cachedDeviceId,
         contents: {
-          title: "생성 완료",
+          title: "생성 완료 🤗",
           body: `${location} 여행 플랜이 생성되었습니다`,
           message: "AI가 생성한 여행 플랜을 보완할 수도 있어요.",
         },
-        // 필요시 데이터 영역에 planId를 태워 보내 딥링크에 활용할 수 있습니다.
         data: { planId },
       })
       .catch((err) => console.log("푸시 알림 요청 실패:", err));
@@ -179,14 +215,12 @@ export default function GenerateScreen() {
     }
   };
 
-  // AI 여행 일정 생성 처리
   const { mutate, isPending } = useMutation({
     mutationFn: async (requestData: any) => {
       const response = await client.post("/v1/trip/generate", requestData);
       return response.data;
     },
     onSuccess: (res) => {
-      // 💡 [리팩토링 적용] 성공했을 때만! 비동기 딜레이 없이 즉시 캐싱된 토큰으로 알림 발송
       sendSuccessNotification(res.id);
 
       queryClient.invalidateQueries({ queryKey: ["tripList"] });
@@ -219,7 +253,6 @@ export default function GenerateScreen() {
     },
   });
 
-  // 유효성 검사 및 생성 버튼 트리거
   const handleGenerate = () => {
     if (!location.trim()) {
       Alert.alert("안내", "여행지를 입력해 주세요.");
@@ -262,7 +295,7 @@ export default function GenerateScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, theme.container]}
     >
       <ScrollView
         contentContainerStyle={[
@@ -273,20 +306,22 @@ export default function GenerateScreen() {
       >
         {/* 헤더 섹션 */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>AI 맞춤 여행 생성 ✨</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerTitle, theme.textMain]}>
+            AI 맞춤 여행 생성 ✨
+          </Text>
+          <Text style={[styles.headerSubtitle, theme.textSub]}>
             취향 태그를 고르고 특별한 요청사항을 입력해 보세요.
           </Text>
         </View>
 
         {/* 1. 목적지 입력 */}
-        <View style={styles.card}>
+        <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Plane size={20} color="#2563EB" />
-            <Text style={styles.label}>여행지</Text>
+            <Text style={[styles.label, theme.textLabel]}>여행지</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, theme.inputBg]}
             placeholder="어디로 떠나시나요? (예: 도쿄, 뉴욕)"
             placeholderTextColor="#9CA3AF"
             value={location}
@@ -295,77 +330,95 @@ export default function GenerateScreen() {
         </View>
 
         {/* 2. 여행 기간 선택 */}
-        <View style={styles.card}>
+        <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Calendar size={20} color="#2563EB" />
-            <Text style={styles.label}>여행 기간</Text>
+            <Text style={[styles.label, theme.textLabel]}>여행 기간</Text>
           </View>
           <View style={styles.counterRow}>
             <TouchableOpacity
-              style={styles.counterBtn}
+              style={[styles.counterBtn, theme.counterBtnBg]}
               onPress={() => setDays(Math.max(0, days - 1))}
             >
-              <Text style={styles.counterBtnText}>-</Text>
+              <Text style={[styles.counterBtnText, theme.counterBtnText]}>
+                -
+              </Text>
             </TouchableOpacity>
-            <Text style={styles.counterText}>
+            <Text style={[styles.counterText, theme.textMain]}>
               {days === 0 ? "당일치기" : `${days}박 ${days + 1}일`}
             </Text>
             <TouchableOpacity
-              style={styles.counterBtn}
+              style={[styles.counterBtn, theme.counterBtnBg]}
               onPress={() => setDays(days + 1)}
             >
-              <Text style={styles.counterBtnText}>+</Text>
+              <Text style={[styles.counterBtnText, theme.counterBtnText]}>
+                +
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* 3. MBTI 선택 */}
-        <View style={styles.card}>
+        <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <User size={20} color="#2563EB" />
-            <Text style={styles.label}>나의 MBTI</Text>
+            <Text style={[styles.label, theme.textLabel]}>나의 MBTI</Text>
           </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.chipScroll}
           >
-            {MBTI_OPTIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[styles.chip, mbti === item && styles.activeChip]}
-                onPress={() => setMbti(item)}
-              >
-                <Text
+            {MBTI_OPTIONS.map((item) => {
+              const isSelected = mbti === item;
+              return (
+                <TouchableOpacity
+                  key={item}
                   style={[
-                    styles.chipText,
-                    mbti === item && styles.activeChipText,
+                    styles.chip,
+                    theme.chipBg,
+                    isSelected && theme.activeChipBg,
                   ]}
+                  onPress={() => setMbti(item)}
                 >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.chipText,
+                      theme.chipText,
+                      isSelected && theme.activeChipText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
         {/* 4. 여행 취향 선택 */}
-        <View style={styles.card}>
+        <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Compass size={20} color="#2563EB" />
-            <Text style={styles.label}>
+            <Text style={[styles.label, theme.textLabel]}>
               어떤 여행을 원하시나요? (중복 가능)
             </Text>
           </View>
 
-          <Text style={[styles.subLabel, { marginTop: 12 }]}>여행 스타일</Text>
+          <Text style={[styles.subLabel, theme.textSub, { marginTop: 12 }]}>
+            여행 스타일
+          </Text>
           <View style={styles.tagGridRow}>
             {TRIP_STYLE_TAGS.map((tag) => {
               const isSelected = selectedTags.includes(tag);
               return (
                 <TouchableOpacity
                   key={tag}
-                  style={[styles.tagBtn, isSelected && styles.activeTagBtn]}
+                  style={[
+                    styles.tagBtn,
+                    theme.chipBg,
+                    isSelected && theme.activeChipBg,
+                  ]}
                   onPress={() => {
                     toggleTag(tag);
                     setTripStyle(tag);
@@ -374,7 +427,8 @@ export default function GenerateScreen() {
                   <Text
                     style={[
                       styles.tagBtnText,
-                      isSelected && styles.activeTagBtnText,
+                      theme.chipText,
+                      isSelected && theme.activeChipText,
                     ]}
                   >
                     {tag}
@@ -384,7 +438,7 @@ export default function GenerateScreen() {
             })}
           </View>
 
-          <Text style={[styles.subLabel, { marginTop: 14 }]}>
+          <Text style={[styles.subLabel, theme.textSub, { marginTop: 14 }]}>
             식당 · 숙소 성향
           </Text>
           <View style={styles.tagGridRow}>
@@ -393,7 +447,11 @@ export default function GenerateScreen() {
               return (
                 <TouchableOpacity
                   key={tag}
-                  style={[styles.tagBtn, isSelected && styles.activeTagBtn]}
+                  style={[
+                    styles.tagBtn,
+                    theme.chipBg,
+                    isSelected && theme.activeChipBg,
+                  ]}
                   onPress={() => {
                     toggleTag(tag);
                     setTendency(tag);
@@ -402,7 +460,8 @@ export default function GenerateScreen() {
                   <Text
                     style={[
                       styles.tagBtnText,
-                      isSelected && styles.activeTagBtnText,
+                      theme.chipText,
+                      isSelected && theme.activeChipText,
                     ]}
                   >
                     {tag}
@@ -412,13 +471,15 @@ export default function GenerateScreen() {
             })}
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, theme.dividerLine]} />
           <View style={styles.labelRowSmall}>
             <Sparkles size={16} color="#2563EB" />
-            <Text style={styles.labelSmall}>나만의 특별 요청사항 (선택)</Text>
+            <Text style={[styles.labelSmall, theme.textLabel]}>
+              나만의 특별 요청사항 (선택)
+            </Text>
           </View>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, theme.inputBg]}
             placeholder="예: 교통이 편한 곳 위주로 관광 코스를 짜주세요."
             placeholderTextColor="#9CA3AF"
             multiline
@@ -430,69 +491,83 @@ export default function GenerateScreen() {
         </View>
 
         {/* 5. 동반자 선택 */}
-        <View style={styles.card}>
+        <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Users size={20} color="#2563EB" />
-            <Text style={styles.label}>누구와 함께하나요?</Text>
+            <Text style={[styles.label, theme.textLabel]}>
+              누구와 함께하나요?
+            </Text>
           </View>
           <View style={styles.gridRow}>
-            {COMPANION_OPTIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.gridBtnThreeColumn,
-                  companion === item && styles.activeGridBtn,
-                ]}
-                onPress={() => setCompanion(item)}
-              >
-                <Text
+            {COMPANION_OPTIONS.map((item) => {
+              const isSelected = companion === item;
+              return (
+                <TouchableOpacity
+                  key={item}
                   style={[
-                    styles.gridBtnText,
-                    companion === item && styles.activeGridBtnText,
+                    styles.gridBtnThreeColumn,
+                    theme.chipBg,
+                    isSelected && theme.activeChipBg,
                   ]}
+                  onPress={() => setCompanion(item)}
                 >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.gridBtnText,
+                      theme.chipText,
+                      isSelected && theme.activeChipText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
         {/* 6. 이동 수단 선택 */}
-        <View style={styles.card}>
+        <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Car size={20} color="#2563EB" />
-            <Text style={styles.label}>주요 이동 수단</Text>
+            <Text style={[styles.label, theme.textLabel]}>주요 이동 수단</Text>
           </View>
           <View style={styles.gridRow}>
-            {TRANSPORT_OPTIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.gridBtnTwoColumn,
-                  transportation === item && styles.activeGridBtn,
-                ]}
-                onPress={() => setTransportation(item)}
-              >
-                <Text
+            {TRANSPORT_OPTIONS.map((item) => {
+              const isSelected = transportation === item;
+              return (
+                <TouchableOpacity
+                  key={item}
                   style={[
-                    styles.gridBtnText,
-                    transportation === item && styles.activeGridBtnText,
+                    styles.gridBtnTwoColumn,
+                    theme.chipBg,
+                    isSelected && theme.activeChipBg,
                   ]}
+                  onPress={() => setTransportation(item)}
                 >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.gridBtnText,
+                      theme.chipText,
+                      isSelected && theme.activeChipText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
         {/* 7. 일정 페이스 선택 */}
-        <View style={styles.card}>
+        <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRowContainer}>
             <View style={styles.labelRow}>
               <Gauge size={20} color="#2563EB" />
-              <Text style={styles.label}>여행 일정 페이스</Text>
+              <Text style={[styles.label, theme.textLabel]}>
+                여행 일정 페이스
+              </Text>
             </View>
             <View style={styles.scoreBadge}>
               <Text style={styles.scoreBadgeText}>{pace} / 10</Text>
@@ -507,12 +582,16 @@ export default function GenerateScreen() {
               value={pace}
               onValueChange={setPace}
               minimumTrackTintColor="#2563EB"
-              maximumTrackTintColor="#E5E7EB"
+              maximumTrackTintColor={isDarkMode ? "#4B5563" : "#E5E7EB"}
               thumbTintColor="#2563EB"
             />
             <View style={styles.sliderLimitRow}>
-              <Text style={styles.sliderLimitText}>1 (여유)</Text>
-              <Text style={styles.sliderLimitText}>10 (빡빡)</Text>
+              <Text style={[styles.sliderLimitText, theme.textSub]}>
+                1 (여유)
+              </Text>
+              <Text style={[styles.sliderLimitText, theme.textSub]}>
+                10 (빡빡)
+              </Text>
             </View>
           </View>
         </View>
@@ -542,28 +621,29 @@ export default function GenerateScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { flex: 1 },
   scrollContainer: { paddingHorizontal: 20 },
   header: { marginBottom: 24 },
   headerTitle: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 6,
   },
-  headerSubtitle: { fontSize: 14, color: "#6B7280", lineHeight: 20 },
+  headerSubtitle: { fontSize: 14, lineHeight: 20 },
   card: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: { elevation: 1 },
+    }),
   },
   labelRow: { flexDirection: "row", alignItems: "center" },
   labelRowContainer: {
@@ -572,22 +652,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  label: { fontSize: 15, fontWeight: "600", color: "#374151", marginLeft: 8 },
+  label: { fontSize: 15, fontWeight: "600", marginLeft: 8 },
   subLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6B7280",
     marginBottom: 8,
     paddingLeft: 2,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#D1D5DB",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: "#111827",
     marginTop: 12,
   },
   textArea: { height: 80, paddingTop: 10, marginTop: 0 },
@@ -598,18 +675,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   counterBtn: {
-    backgroundColor: "#F3F4F6",
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  counterBtnText: { fontSize: 20, fontWeight: "600", color: "#374151" },
-  counterText: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  counterBtnText: { fontSize: 20, fontWeight: "600" },
+  counterText: { fontSize: 16, fontWeight: "600" },
   chipScroll: { flexDirection: "row", marginTop: 12 },
   chip: {
-    backgroundColor: "#F3F4F6",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -617,9 +692,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
-  activeChip: { backgroundColor: "#EFF6FF", borderColor: "#2563EB" },
-  chipText: { fontSize: 14, color: "#4B5563", fontWeight: "500" },
-  activeChipText: { color: "#2563EB", fontWeight: "600" },
+  chipText: { fontSize: 14, fontWeight: "500" },
   tagGridRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -628,22 +701,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tagBtn: {
-    backgroundColor: "#F3F4F6",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "transparent",
   },
-  activeTagBtn: { backgroundColor: "#EFF6FF", borderColor: "#2563EB" },
   tagBtnText: {
     fontSize: 13,
-    color: "#4B5563",
     fontWeight: "500",
     includeFontPadding: false,
   },
-  activeTagBtnText: { color: "#2563EB", fontWeight: "600" },
-  divider: { height: 1, backgroundColor: "#E5E7EB", marginVertical: 16 },
+  divider: { height: 1, marginVertical: 16 },
   labelRowSmall: {
     flexDirection: "row",
     alignItems: "center",
@@ -652,7 +721,6 @@ const styles = StyleSheet.create({
   labelSmall: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#4B5563",
     marginLeft: 6,
   },
   gridRow: {
@@ -664,7 +732,6 @@ const styles = StyleSheet.create({
   },
   gridBtnThreeColumn: {
     width: "31.5%",
-    backgroundColor: "#F3F4F6",
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
@@ -674,7 +741,6 @@ const styles = StyleSheet.create({
   },
   gridBtnTwoColumn: {
     width: "48.5%",
-    backgroundColor: "#F3F4F6",
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
@@ -682,16 +748,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
-  activeGridBtn: { backgroundColor: "#EFF6FF", borderColor: "#2563EB" },
   gridBtnText: {
     fontSize: 14,
-    color: "#4B5563",
     fontWeight: "500",
     includeFontPadding: false,
     textAlignVertical: "center",
     lineHeight: 18,
   },
-  activeGridBtnText: { color: "#2563EB", fontWeight: "600" },
   scoreBadge: {
     backgroundColor: "#2563EB",
     paddingHorizontal: 10,
@@ -707,7 +770,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     marginTop: -4,
   },
-  sliderLimitText: { fontSize: 11, color: "#9CA3AF", fontWeight: "500" },
+  sliderLimitText: { fontSize: 11, fontWeight: "500" },
   submitBtn: {
     backgroundColor: "#2563EB",
     borderRadius: 14,
