@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,9 +12,11 @@ import {
   ChevronRight,
   X,
   Loader2,
+  Moon,
 } from "lucide-react";
 import SecureLS from "secure-ls";
 import { client } from "@/api/client";
+import { useTheme } from "@/context/ThemeContext";
 
 const ls =
   typeof window !== "undefined" ? new SecureLS({ encodingType: "aes" }) : null;
@@ -27,9 +29,16 @@ export default function MyPagePage() {
   // 모달 제어 상태 관리
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputNickname, setInputNickname] = useState("");
-
   const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+
+  const { isDarkMode, toggleDarkMode } = useTheme();
+
+  const handleToggleDarkMode = () => {
+    const nextMode = !isDarkMode;
+    toggleDarkMode();
+    localStorage.setItem("zelontrip_theme", nextMode ? "dark" : "light");
+  };
 
   // 1. 피드백 전송 Mutation
   const feedbackMutation = useMutation({
@@ -81,13 +90,11 @@ export default function MyPagePage() {
   const handleLogout = () => {
     if (window.confirm("정말 로그아웃 하시겠습니까?")) {
       try {
-        // 💡 secure-ls로 암호화되어 저장된 토큰을 안전하게 삭제합니다.
         if (ls) {
           ls.remove("userToken");
         } else {
-          localStorage.removeItem("userToken"); // 방어용 백업
+          localStorage.removeItem("userToken");
         }
-
         queryClient.clear();
         router.replace("/login");
       } catch (error) {
@@ -106,13 +113,11 @@ export default function MyPagePage() {
       startTransition(async () => {
         try {
           await client.patch("/v1/auth/deactivate");
-
           if (ls) {
             ls.remove("userToken");
           } else {
             localStorage.removeItem("userToken");
           }
-
           queryClient.clear();
           alert("안내: 그동안 서비스를 이용해 주셔서 감사합니다.");
           router.replace("/login");
@@ -124,6 +129,7 @@ export default function MyPagePage() {
       });
     }
   };
+
   const openNicknameModal = () => {
     setInputNickname(userData?.nickname || "");
     setIsModalVisible(true);
@@ -142,7 +148,6 @@ export default function MyPagePage() {
         if (!oldData) return oldData;
         return { ...oldData, nickname: data.nickname };
       });
-
       alert("성공: 닉네임이 성공적으로 설정되었습니다.");
       setIsModalVisible(false);
       setInputNickname("");
@@ -166,20 +171,38 @@ export default function MyPagePage() {
   };
 
   return (
-    <div className="min-w-screen min-h-screen w-full bg-gray-50 text-gray-900">
+    <div
+      className={`min-w-screen min-h-screen w-full transition-colors duration-200 ${
+        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
+      }`}
+    >
       {/* 메인 레이아웃 컨테이너 */}
       <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
         {/* 헤더 영역 */}
-        <header className="pb-4 mb-6 border-b border-gray-200">
+        <header
+          className={`pb-4 mb-6 border-b ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}
+        >
           <h1 className="text-2xl font-bold tracking-tight">마이페이지</h1>
         </header>
 
         {/* 본문 콘텐츠 */}
         <main className="space-y-5">
           {/* 👣 [1. 프로필 & 취향 배지 영역] */}
-          <section className="p-4 rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <section
+            className={`p-4 rounded-2xl border shadow-sm transition-colors ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-200"
+            }`}
+          >
             <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
+              <div
+                className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                  isDarkMode
+                    ? "bg-blue-900/40 text-blue-400"
+                    : "bg-blue-50 text-blue-600"
+                }`}
+              >
                 <User className="w-7 h-7" />
               </div>
 
@@ -195,7 +218,11 @@ export default function MyPagePage() {
                         </span>
                         <button
                           onClick={openNicknameModal}
-                          className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                          className={`px-2 py-0.5 rounded text-xs font-semibold transition-colors ${
+                            isDarkMode
+                              ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
                         >
                           닉네임 수정하기
                         </button>
@@ -203,12 +230,18 @@ export default function MyPagePage() {
                     ) : (
                       <button
                         onClick={openNicknameModal}
-                        className="px-3 py-1.5 rounded-lg border text-sm font-semibold text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100 self-start mb-1 transition-colors"
+                        className={`px-3 py-1.5 rounded-lg border text-sm font-semibold self-start mb-1 transition-colors ${
+                          isDarkMode
+                            ? "text-blue-400 bg-blue-950/40 border-blue-900 hover:bg-blue-900/30"
+                            : "text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100"
+                        }`}
                       >
                         닉네임 만들기 ✏️
                       </button>
                     )}
-                    <span className="text-sm font-medium truncate text-gray-500">
+                    <span
+                      className={`text-sm font-medium truncate ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
                       {userData?.username}
                     </span>
                   </div>
@@ -216,17 +249,27 @@ export default function MyPagePage() {
               </div>
             </div>
 
-            <hr className="my-4 border-gray-100" />
+            <hr
+              className={`my-4 ${isDarkMode ? "border-gray-700" : "border-gray-100"}`}
+            />
 
             {/* AI 취향 페르소나 배지 라인 */}
             <div className="w-full">
-              <div className="flex items-center space-x-1.5 mb-3 text-sm font-semibold text-gray-500">
+              <div
+                className={`flex items-center space-x-1.5 mb-3 text-sm font-semibold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+              >
                 <Award className="w-4 h-4" />
                 <span>취득한 뱃지</span>
               </div>
 
               <div className="flex flex-wrap gap-2.5">
-                <div className="px-3 py-1.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600 text-xs font-semibold">
+                <div
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                    isDarkMode
+                      ? "border-blue-900/50 bg-blue-950/30 text-blue-400"
+                      : "border-blue-100 bg-blue-50 text-blue-600"
+                  }`}
+                >
                   {isStatsPending
                     ? "⏳ 분석 중..."
                     : (statsData?.total_location ?? 0) >= 5
@@ -237,7 +280,13 @@ export default function MyPagePage() {
                 </div>
 
                 {(statsData?.total_days ?? 0) > 0 && (
-                  <div className="px-3 py-1.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600 text-xs font-semibold">
+                  <div
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                      isDarkMode
+                        ? "border-blue-900/50 bg-blue-950/30 text-blue-400"
+                        : "border-blue-100 bg-blue-50 text-blue-600"
+                    }`}
+                  >
                     ⏱️ 누적 {statsData?.total_days}일째 여행 중
                   </div>
                 )}
@@ -246,9 +295,17 @@ export default function MyPagePage() {
           </section>
 
           {/* 👣 [2. 여행 발자국 영역] */}
-          <section className="p-4 rounded-2xl border border-gray-200 bg-white shadow-sm flex items-start space-x-3">
+          <section
+            className={`p-4 rounded-2xl border shadow-sm flex items-start space-x-3 transition-colors ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-200"
+            }`}
+          >
             <div className="flex flex-col flex-1">
-              <div className="flex items-center space-x-1.5 mb-1 text-sm font-semibold text-gray-500">
+              <div
+                className={`flex items-center space-x-1.5 mb-1 text-sm font-semibold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+              >
                 <Footprints className="w-4 h-4" />
                 <span>나의 여행 발자국</span>
               </div>
@@ -256,9 +313,13 @@ export default function MyPagePage() {
               {isStatsPending ? (
                 <Loader2 className="w-4 h-4 animate-spin text-blue-600 mt-2" />
               ) : (
-                <p className="text-sm mt-1 leading-relaxed text-gray-600">
+                <p
+                  className={`text-sm mt-1 leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
+                >
                   지금까지 ZelonTrip과 함께{" "}
-                  <span className="text-blue-600 font-bold">
+                  <span
+                    className={`${isDarkMode ? "text-blue-400" : "text-blue-600"} font-bold`}
+                  >
                     {statsData?.total_location ?? 0}개
                   </span>
                   의 여행지를 탐방했어요!
@@ -269,18 +330,59 @@ export default function MyPagePage() {
 
           {/* ⚙️ [3. 앱 지원 메뉴] */}
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold pl-0.5 text-gray-500">
-              앱 지원
+            <h2
+              className={`text-sm font-semibold pl-0.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+            >
+              앱 설정 및 지원
             </h2>
 
-            <div className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-100 shadow-sm overflow-hidden">
+            <div
+              className={`rounded-2xl border divide-y shadow-sm overflow-hidden transition-colors ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-700 divide-gray-700"
+                  : "bg-white border-gray-200 divide-gray-100"
+              }`}
+            >
+              {/* 다크모드 설정 아이템 */}
+              <div
+                className={`w-full flex items-center justify-between p-4 transition-colors ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Moon
+                    className={`w-5 h-5 ${isDarkMode ? "text-blue-400" : "text-gray-500"}`}
+                  />
+                  <span className="text-[15px] font-medium">다크모드</span>
+                </div>
+
+                {/* 스위치 토글 버튼 */}
+                <button
+                  type="button"
+                  onClick={handleToggleDarkMode}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                    isDarkMode ? "bg-blue-600" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out 
+        ${isDarkMode ? "translate-x-5" : "translate-x-0"}
+      `}
+                  />
+                </button>
+              </div>
+
               {/* 공지사항 링크 */}
               <button
                 onClick={() => router.push("/notice")}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
+                  isDarkMode
+                    ? "bg-gray-800 hover:bg-gray-700/60"
+                    : "bg-white hover:bg-gray-50"
+                }`}
               >
                 <div className="flex items-center space-x-3">
-                  <Megaphone className="w-5 h-5 text-gray-500" />
+                  <Megaphone
+                    className={`w-5 h-5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                  />
                   <span className="text-[15px] font-medium">공지사항</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -289,10 +391,16 @@ export default function MyPagePage() {
               {/* 피드백 보내기 링크 */}
               <button
                 onClick={() => setIsFeedbackModalVisible(true)}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
+                  isDarkMode
+                    ? "bg-gray-800 hover:bg-gray-700/60"
+                    : "bg-white hover:bg-gray-50"
+                }`}
               >
                 <div className="flex items-center space-x-3">
-                  <MessageSquare className="w-5 h-5 text-gray-500" />
+                  <MessageSquare
+                    className={`w-5 h-5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                  />
                   <span className="text-[15px] font-medium">피드백 보내기</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -304,22 +412,28 @@ export default function MyPagePage() {
           <div className="flex items-center justify-center space-x-4 pt-2">
             <button
               onClick={handleLogout}
-              className="text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors"
+              className={`text-sm font-medium transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
             >
               로그아웃
             </button>
-            <span className="text-gray-200 select-none">|</span>
+            <span
+              className={`${isDarkMode ? "text-gray-700" : "text-gray-200"} select-none`}
+            >
+              |
+            </span>
             <button
               onClick={handleDeactivate}
               disabled={isPendingDeactivate}
-              className="text-sm font-medium text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+              className={`text-sm font-medium transition-colors disabled:opacity-50 ${isDarkMode ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
             >
               {isPendingDeactivate ? "탈퇴 중..." : "회원탈퇴"}
             </button>
           </div>
 
           {/* 서비스 버전 표시 */}
-          <p className="text-xs text-center font-medium text-gray-400 pt-1">
+          <p
+            className={`text-xs text-center font-medium pt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}
+          >
             버전 정보 v1.0.0 (최신 버전)
           </p>
         </main>
@@ -329,10 +443,18 @@ export default function MyPagePage() {
       {/* 🔮 [모달 1] 닉네임 변경 다이얼로그 오버레이 */}
       {/* ========================================================================= */}
       {isModalVisible && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl p-6 shadow-xl bg-white text-gray-900 transform transition-all">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            className={`w-full max-w-sm rounded-2xl p-6 shadow-xl transform transition-all ${
+              isDarkMode
+                ? "bg-gray-800 text-gray-100"
+                : "bg-white text-gray-900"
+            }`}
+          >
             <h3 className="text-lg font-bold mb-1.5">닉네임 설정</h3>
-            <p className="text-xs mb-4 text-gray-500">
+            <p
+              className={`text-xs mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+            >
               새로운 닉네임을 입력해 주세요.
             </p>
 
@@ -344,7 +466,11 @@ export default function MyPagePage() {
                 maxLength={15}
                 autoFocus
                 placeholder="닉네임 입력"
-                className="w-full h-11 px-3.5 border border-gray-300 rounded-lg text-[15px] bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-shadow"
+                className={`w-full h-11 px-3.5 border rounded-lg text-[15px] outline-none focus:ring-2 focus:ring-blue-500/40 transition-shadow ${
+                  isDarkMode
+                    ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400"
+                }`}
               />
 
               <div className="flex gap-3 w-full">
@@ -352,7 +478,11 @@ export default function MyPagePage() {
                   type="button"
                   onClick={() => setIsModalVisible(false)}
                   disabled={nicknameMutation.isPending}
-                  className="flex-1 h-11 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors"
+                  className={`flex-1 h-11 rounded-lg text-sm font-semibold transition-colors ${
+                    isDarkMode
+                      ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                  }`}
                 >
                   취소
                 </button>
@@ -377,8 +507,14 @@ export default function MyPagePage() {
       {/* 🔮 [모달 2] 피드백 보내기 다이얼로그 오버레이 */}
       {/* ========================================================================= */}
       {isFeedbackModalVisible && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl p-6 shadow-xl bg-white text-gray-900 transform transition-all">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            className={`w-full max-w-sm rounded-2xl p-6 shadow-xl transform transition-all ${
+              isDarkMode
+                ? "bg-gray-800 text-gray-100"
+                : "bg-white text-gray-900"
+            }`}
+          >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold">💬 피드백 보내기</h3>
               <button
@@ -386,13 +522,15 @@ export default function MyPagePage() {
                   setIsFeedbackModalVisible(false);
                   setFeedbackText("");
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className={`transition-colors ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-400 hover:text-gray-600"}`}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-center leading-relaxed mb-4 text-gray-500">
+            <p
+              className={`text-xs text-center leading-relaxed mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+            >
               ZelonTrip을 이용하면서 좋았던 점이나 <br /> 불편했던 점을 자유롭게
               작성해주세요.
             </p>
@@ -405,7 +543,11 @@ export default function MyPagePage() {
                 rows={4}
                 autoFocus
                 placeholder="여기에 내용을 입력해 주세요 (최대 300자)"
-                className="w-full p-3.5 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-shadow"
+                className={`w-full p-3.5 border rounded-lg text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500/40 transition-shadow ${
+                  isDarkMode
+                    ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400"
+                }`}
               />
 
               <div className="flex gap-3 w-full">
@@ -416,7 +558,11 @@ export default function MyPagePage() {
                     setFeedbackText("");
                   }}
                   disabled={feedbackMutation.isPending}
-                  className="flex-1 h-11 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors"
+                  className={`flex-1 h-11 rounded-lg text-sm font-semibold transition-colors ${
+                    isDarkMode
+                      ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                  }`}
                 >
                   취소
                 </button>

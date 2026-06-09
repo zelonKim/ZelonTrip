@@ -5,7 +5,6 @@ import Providers from "./providers";
 import MenuTabBar from "@/component/MenuTabBar";
 
 
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -33,10 +32,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>
-          <div className="relative min-h-screen  pb-16 shadow-none md:shadow-sm">
-            <main>{children}</main>
-            <MenuTabBar />
-          </div>
+            <div className="relative min-h-screen  pb-16 shadow-none md:shadow-sm">
+              <main>{children}</main>
+              <MenuTabBar />
+            </div>
         </Providers>
       </body>
     </html>

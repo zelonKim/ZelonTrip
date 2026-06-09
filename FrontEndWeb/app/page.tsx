@@ -16,10 +16,12 @@ import {
 } from "lucide-react";
 import { client } from "@/api/client";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
+import { useTheme } from "@/context/ThemeContext"; // 🎯 1. 전역 테마 훅 가져오기
 
 export default function HomeContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { isDarkMode } = useTheme(); // 🎯 2. 다크모드 상태 구독
 
   const mapsLib = useMapsLibrary("maps");
 
@@ -51,10 +53,9 @@ export default function HomeContent() {
     },
   });
 
-  const hasHistory = statsData && statsData.total_location > 0;
+  const hasHistory = (statsData?.total_location ?? 0) > 0;
 
   // 3. 맞춤 추천 데이터 패칭
-  // 🎯 [교정] queryKey를 고정하여 coords가 변경되어도 자동 리패칭이 발생하지 않도록 차단합니다.
   const {
     data: recommendedPlans,
     isPending: isRecommendPending,
@@ -69,7 +70,6 @@ export default function HomeContent() {
       } else {
         const response = await client.get("/v1/trip/recommend/nearby", {
           params: {
-            // 주입 시점에 coords 메모리 값을 그대로 참조하되 키는 흔들리지 않습니다.
             latitude: coords?.latitude ?? 37.5665,
             longitude: coords?.longitude ?? 126.978,
           },
@@ -77,14 +77,13 @@ export default function HomeContent() {
         return response.data;
       }
     },
-    // 🎯 불필요한 윈도우 포커스나 재마운트 시 자동 갱신 리패칭 옵션을 철저히 비활성화합니다.
-    enabled: !isLocationLoading, // 최초 위치 수집이 한 번 끝난 시점부터 수동 가동
-    staleTime: Infinity, // 데이터를 항상 최신(fresh)으로 인식하게 해 자동 리패칭 방지
-    refetchOnWindowFocus: false, // 다른 탭 갔다 와도 새로고침 안 됨
-    refetchOnMount: false, // 컴포넌트 재마운트 시 새로고침 안 됨
+    enabled: !isLocationLoading && !isStatsPending && statsData !== undefined,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // 백엔드를 거치지 않고 구글 정식 라이브러리로 한글 주소 변환
+  // 구글 라이브러리로 한글 주소 변환
   const fetchKoreanAddress = (lat: number, lng: number) => {
     if (!mapsLib || typeof google === "undefined" || !google.maps) {
       setDisplayLocation("위치 정보 가져오기 실패");
@@ -94,10 +93,7 @@ export default function HomeContent() {
     try {
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode(
-        {
-          location: { lat, lng },
-          language: "ko",
-        },
+        { location: { lat, lng }, language: "ko" },
         (results, status) => {
           if (
             status === google.maps.GeocoderStatus.OK &&
@@ -151,6 +147,14 @@ export default function HomeContent() {
     );
   };
 
+  const checkBadgeStatus = () => {
+    const existingData = localStorage.getItem("zelontrip_notifications");
+    if (existingData) {
+      const list = JSON.parse(existingData);
+      if (list.length > 0) setHasNewNotification(true);
+    }
+  };
+
   useEffect(() => {
     if (mapsLib && coords) {
       fetchKoreanAddress(coords.latitude, coords.longitude);
@@ -159,14 +163,6 @@ export default function HomeContent() {
 
   useEffect(() => {
     getUserLocation();
-
-    const checkBadgeStatus = () => {
-      const existingData = localStorage.getItem("zelontrip_notifications");
-      if (existingData) {
-        const list = JSON.parse(existingData);
-        if (list.length > 0) setHasNewNotification(true);
-      }
-    };
     checkBadgeStatus();
   }, []);
 
@@ -191,27 +187,35 @@ export default function HomeContent() {
     window.open(googleMapUrl, "_blank");
   };
 
-  // 🎯 [핵심 버튼 이벤트 처리] 버튼을 명시적으로 클릭했을 때만 데이터가 초기화되고 무조건 다시 받아옵니다.
   const handleRefreshRecommend = async () => {
     await queryClient.invalidateQueries({ queryKey: ["tripRecommend"] });
     refetchRecommend();
   };
 
   return (
-    <div className="md:px-6 lg:px-12 xl:px-24 min-h-screen pb-10 bg-gray-50 text-gray-900">
+    <div
+      className={`md:px-6 lg:px-12 xl:px-24 min-h-screen pb-16 transition-colors duration-200 ${
+        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
+      }`}
+    >
       <div className="mx-auto px-5">
         {/* 1. 상단 헤더 섹션 */}
         <header className="flex justify-between items-center pt-10 mb-6">
           <div>
-            <span className="text-xs text-gray-500 block mb-0.5">
+            <span
+              className={`text-xs block mb-0.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+            >
               현재 위치
             </span>
             <button
               onClick={getUserLocation}
               disabled={isLocationLoading}
-              className="flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1 cursor-pointer disabled:opacity-50 outline-none"
             >
-              <MapPin size={14} className="text-blue-600" />
+              <MapPin
+                size={14}
+                className={isDarkMode ? "text-blue-400" : "text-blue-600"}
+              />
               {isLocationLoading ? (
                 <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin inline-block ml-1" />
               ) : (
@@ -225,11 +229,19 @@ export default function HomeContent() {
               setHasNewNotification(false);
               router.push("/notification");
             }}
-            className="relative w-11 h-11 rounded-full flex items-center justify-center transition-colors bg-gray-200 hover:bg-gray-300"
+            className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+              isDarkMode
+                ? "bg-gray-800 hover:bg-gray-700 text-gray-200"
+                : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+            }`}
           >
             <Bell size={24} />
             {hasNewNotification && (
-              <span className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border-2 border-gray-200" />
+              <span
+                className={`absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border-2 ${
+                  isDarkMode ? "border-gray-800" : "border-gray-200"
+                }`}
+              />
             )}
           </button>
         </header>
@@ -239,7 +251,9 @@ export default function HomeContent() {
           {isPending ? (
             <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-1" />
           ) : (
-            <p className="text-lg font-medium text-gray-600">
+            <p
+              className={`text-lg font-medium ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
+            >
               {userData?.nickname
                 ? `${userData.nickname}님,`
                 : `${userData?.username?.split("@")[0] ?? "여행자"}님,`}
@@ -254,7 +268,11 @@ export default function HomeContent() {
         <section className="mb-8">
           <div
             onClick={() => setModalVisible(true)}
-            className="flex items-center justify-between px-4 h-14 rounded-2xl border cursor-pointer transition-colors bg-white border-gray-200"
+            className={`flex items-center justify-between px-4 h-14 rounded-2xl border cursor-pointer transition-colors ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-200"
+            }`}
           >
             <div className="flex items-center gap-3 flex-1">
               <Search size={20} className="text-gray-400" />
@@ -262,27 +280,36 @@ export default function HomeContent() {
                 궁금한 여행지를 물어보세요
               </span>
             </div>
-            <SlidersHorizontal size={20} className="text-gray-600" />
+            <SlidersHorizontal
+              size={20}
+              className={isDarkMode ? "text-gray-300" : "text-gray-600"}
+            />
           </div>
         </section>
 
         {/* 모달 윈도우 */}
         {modalVisible && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-5">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-5">
             <div
-              className="w-full max-w-sm rounded-2xl p-5 shadow-xl bg-white"
+              className={`w-full max-w-sm rounded-2xl p-5 shadow-xl transition-colors ${
+                isDarkMode
+                  ? "bg-gray-800 text-gray-100"
+                  : "bg-white text-gray-900"
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-lg font-bold">🤖 여행지 맞춤 정보</h2>
                 <button
                   onClick={() => setModalVisible(false)}
-                  className="text-gray-400 hover:text-gray-500"
+                  className="text-gray-400 hover:text-gray-500 outline-none"
                 >
                   <X size={22} />
                 </button>
               </div>
-              <p className="text-sm mb-4 text-gray-600">
+              <p
+                className={`text-sm mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+              >
                 AI에게 궁금한 여행지를 물어보면 맞춤 여행 정보를 답변해줘요.
               </p>
               <form onSubmit={handleAskAI}>
@@ -291,12 +318,16 @@ export default function HomeContent() {
                   placeholder="예: 도쿄, 뉴욕, 파리, 런던 등"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-12 border rounded-xl px-3 text-base mb-4 outline-none focus:border-blue-500 bg-gray-50 border-gray-300 text-gray-900"
+                  className={`w-full h-12 border rounded-xl px-3 text-base mb-4 outline-none focus:border-blue-500 transition-colors ${
+                    isDarkMode
+                      ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
+                      : "bg-gray-50 border-gray-300 text-gray-900"
+                  }`}
                   autoFocus
                 />
                 <button
                   type="submit"
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-md"
                 >
                   물어보기
                 </button>
@@ -309,14 +340,24 @@ export default function HomeContent() {
         <section className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <Sparkles size={20} className="text-blue-600 fill-blue-600" />
+              <Sparkles
+                size={20}
+                className={
+                  isDarkMode
+                    ? "text-blue-400 fill-blue-400/20"
+                    : "text-blue-600 fill-blue-600"
+                }
+              />
               <h2 className="text-xl font-bold">맞춤 여행지 추천</h2>
             </div>
-            {/* 🎯 이 버튼을 누를 때만 회전 애니메이션과 함께 데이터 갱신이 일어납니다 */}
             <button
               onClick={handleRefreshRecommend}
               disabled={isRecommendPending || isRecommendRefetching}
-              className="p-2 rounded-full transition-colors bg-gray-100 hover:bg-gray-200"
+              className={`p-2 rounded-full transition-colors ${
+                isDarkMode
+                  ? "bg-gray-800 hover:bg-gray-700"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
             >
               <RotateCw
                 size={16}
@@ -329,7 +370,9 @@ export default function HomeContent() {
             <div className="py-10 flex flex-col items-center justify-center gap-2">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
               {userData && (
-                <p className="text-sm mt-2 text-gray-600">
+                <p
+                  className={`text-sm mt-2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
                   {userData.nickname || userData.username?.split("@")[0]}님을
                   위한 맞춤 여행지 분석중...
                 </p>
@@ -346,7 +389,11 @@ export default function HomeContent() {
                         `/answer?keyword=${encodeURIComponent(item.title.trim())}`,
                       )
                     }
-                    className="min-w-[220px] w-[220px] rounded-2xl overflow-hidden border cursor-pointer snap-start transition-transform hover:scale-[1.02] bg-white border-gray-200"
+                    className={`min-w-[220px] w-[220px] rounded-2xl overflow-hidden border cursor-pointer snap-start transition-all hover:scale-[1.02] ${
+                      isDarkMode
+                        ? "bg-gray-800 border-gray-700"
+                        : "bg-white border-gray-200"
+                    }`}
                   >
                     <div
                       className="h-[140px] p-3 flex items-end bg-cover bg-center relative"
@@ -354,13 +401,21 @@ export default function HomeContent() {
                         backgroundImage: `url(${item.imageUrl || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"})`,
                       }}
                     >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <span className="relative z-10 bg-white/90 text-blue-600 px-2.5 py-0.5 rounded-xl text-[10px] font-semibold">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <span
+                        className={`relative z-10 px-2.5 py-0.5 rounded-xl text-[11px] font-semibold ${
+                          isDarkMode
+                            ? "bg-gray-900/90 text-blue-400"
+                            : "bg-gray-100/80 text-blue-600"
+                        }`}
+                      >
                         {item.tag || `#${item.category || "여행"}`}
                       </span>
                     </div>
                     <div className="p-3">
-                      <h3 className="text-base font-bold truncate mb-1.5">
+                      <h3
+                        className={`text-base font-bold truncate mb-1.5 ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}
+                      >
                         {item.title}
                       </h3>
                       <div className="flex items-center gap-1 text-sm">
@@ -371,13 +426,25 @@ export default function HomeContent() {
                         <span className="font-semibold">
                           {item.rating || "4.5"}
                         </span>
-                        <span className="text-gray-500">{` • ${item.distance}`}</span>
+                        <span
+                          className={
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }
+                        >
+                          {` • ${item.distance}`}
+                        </span>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="w-full py-10 flex items-center justify-center border rounded-2xl bg-white border-gray-200 text-gray-500">
+                <div
+                  className={`w-full py-10 flex items-center justify-center border rounded-2xl transition-colors ${
+                    isDarkMode
+                      ? "bg-gray-800 border-gray-700 text-gray-400"
+                      : "bg-white border-gray-200 text-gray-500"
+                  }`}
+                >
                   추천 가능한 여행지가 없습니다.
                 </div>
               )}
@@ -388,7 +455,7 @@ export default function HomeContent() {
         {/* 5. 하단 배너 */}
         <button
           onClick={handleOpenGoogleMap}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-2xl p-6 flex justify-between items-center text-left transition-all shadow-lg shadow-blue-600/20"
+          className={`w-full text-white rounded-2xl p-6 flex justify-between items-center text-left transition-all shadow-lg ${"bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"}`}
         >
           <div>
             <span className="text-sm text-white/80 block mb-1">

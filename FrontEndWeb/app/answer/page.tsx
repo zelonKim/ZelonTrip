@@ -46,8 +46,8 @@ function AnswerContent() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 text-gray-900 pb-12">
-      <div className="max-w-5xl mx-auto relative sm:px-0">
+    <div className="min-h-screen w-full bg-gray-50 text-gray-900 ">
+      <div className="max-w-3xl mx-auto relative sm:px-0">
         {/* 1. 상단 대표 랜드마크 이미지 영역 */}
         <div className="relative w-full h-[300px] overflow-hidden">
           <img

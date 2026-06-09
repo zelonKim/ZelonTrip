@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -19,8 +20,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
       <QueryClientProvider client={queryClient}>
-        {children}
-        </QueryClientProvider>
+        <ThemeProvider>
+          {children}
+          </ThemeProvider>
+      </QueryClientProvider>
     </APIProvider>
   );
 }
