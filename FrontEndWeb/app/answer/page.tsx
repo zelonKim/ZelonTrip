@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { client } from "@/api/client";
+import { useTheme } from "@/context/ThemeContext";
 
 interface AIAnswerResponse {
   keyword: string;
@@ -31,6 +32,8 @@ function AnswerContent() {
     enabled: !!keyword,
   });
 
+  const { isDarkMode } = useTheme();
+
   // 로딩 상태 UI
   if (isPending) {
     return (
@@ -46,7 +49,9 @@ function AnswerContent() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 text-gray-900 ">
+    <div
+      className={`min-h-screen w-full pb-8 ${isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}
+    >
       <div className="max-w-3xl mx-auto relative sm:px-0">
         {/* 1. 상단 대표 랜드마크 이미지 영역 */}
         <div className="relative w-full h-[300px] overflow-hidden">
@@ -82,18 +87,32 @@ function AnswerContent() {
         </div>
 
         {/* 2. 하단 텍스트 가이드북 내용 영역 */}
-        <div className="px-4 -mt-4 relative z-10">
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-5">
+        <div className="px-1 -mt-4 relative z-10">
+          <div
+            className={`rounded-2xl border p-6 shadow-sm space-y-5 transition-colors ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-200"
+            }`}
+          >
             {/* 카드 내부 헤더 */}
-            <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+            <div
+              className={`flex items-center space-x-2 border-b pb-3 ${isDarkMode ? "border-gray-700" : "border-gray-100"}`}
+            >
               <span className="text-xl">🤖</span>
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2
+                className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}
+              >
                 AI의 특별 가이드
               </h2>
             </div>
 
-            {/* 🎯 [마크다운 핵심 렌더러] Tailwind prose 플러그인을 태워 타이포그래피 정형화 */}
-            <article className="prose prose-sm max-w-none text-gray-700 leading-relaxed prose-headings:font-bold prose-headings:text-gray-900 prose-strong:text-gray-900 prose-strong:font-bold">
+            {/* 마크다운 렌더러 (prose-invert 추가) */}
+            <article
+              className={`prose prose-sm max-w-none leading-relaxed ${
+                isDarkMode ? "prose-invert text-gray-300" : "text-gray-700"
+              } prose-headings:font-bold prose-headings:text-gray-900 prose-strong:font-bold`}
+            >
               <ReactMarkdown>
                 {aiAnswer?.content || "가이드 내용을 불러오지 못했습니다."}
               </ReactMarkdown>
