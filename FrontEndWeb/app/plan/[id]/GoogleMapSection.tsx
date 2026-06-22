@@ -63,11 +63,8 @@ function SingleDayDirections({
         travelMode: google.maps.TravelMode.DRIVING,
         optimizeWaypoints: true,
       },
-  
-      (
-        result: google.maps.DirectionsResult | null,
-        status: google.maps.DirectionsStatus,
-      ) => {
+
+      (result: google.maps.DirectionsResult | null, status: any) => {
         if (status === google.maps.DirectionsStatus.OK && result) {
           const legPaths = result.routes[0].legs.flatMap(
             (leg: google.maps.DirectionsLeg) =>
