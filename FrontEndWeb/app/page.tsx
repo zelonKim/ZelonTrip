@@ -389,7 +389,7 @@ export default function HomeContent() {
                         `/answer?keyword=${encodeURIComponent(item.title.trim())}`,
                       )
                     }
-                    className={`min-w-[220px] w-[220px] rounded-2xl overflow-hidden border cursor-pointer snap-start transition-all hover:scale-[1.02] ${
+                    className={`min-w-[230px] w-[230px] rounded-2xl overflow-hidden border cursor-pointer snap-start transition-all hover:scale-[1.02] ${
                       isDarkMode
                         ? "bg-gray-800 border-gray-700"
                         : "bg-white border-gray-200"
