@@ -2,10 +2,16 @@ from typing import Annotated
 from sqlmodel import SQLModel
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-DATABASE_URL = "postgresql+asyncpg://neondb_owner:npg_MiXQbZf9VDC4@ep-shiny-darkness-aoj4b0ur-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?ssl=require"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+
+assert DATABASE_URL is not None
 
 engine = create_async_engine(
     DATABASE_URL,
@@ -30,6 +36,3 @@ async def create_db_tables():
 async def get_db():
     async with async_session_factory() as session:
         yield session
-
-
-
