@@ -8,7 +8,9 @@ import {
   Polyline,
   InfoWindow,
   useMap,
+  useMapsLibrary, 
 } from "@vis.gl/react-google-maps";
+
 
 interface Place {
   place_name: string;
@@ -25,6 +27,8 @@ interface ItineraryItem {
 
 const dayColors = ["#2563EB", "#F59E0B", "#10B981", "#8B5CF6", "#EF4444"];
 
+
+
 function SingleDayDirections({
   places,
   color,
@@ -33,15 +37,14 @@ function SingleDayDirections({
   color: string;
 }) {
   const map = useMap();
+  const routesLibrary = useMapsLibrary("routes"); 
   const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
 
   useEffect(() => {
-    if (!map || !places || places.length < 2) return;
+    if (!map || !places || places.length < 2 || !routesLibrary) return;
 
-    // 💡 window 객체 내 구글 지도가 정상 로드되었는지 타입 안전성 보장 확인
-    if (typeof google === "undefined" || !google.maps) return;
-
-    const directionsService = new google.maps.DirectionsService();
+    const directionsService = new routesLibrary.DirectionsService();
+    
     const origin = {
       lat: Number(places[0].latitude),
       lng: Number(places[0].longitude),
@@ -60,16 +63,16 @@ function SingleDayDirections({
         origin,
         destination,
         waypoints,
-        travelMode: google.maps.TravelMode.DRIVING,
+        travelMode: "DRIVING" as google.maps.TravelMode, // 🎯 안전하게 문자열 기반 캐스팅으로 변경
         optimizeWaypoints: true,
       },
-
-      (result: google.maps.DirectionsResult | null, status: any) => {
-        if (status === google.maps.DirectionsStatus.OK && result) {
+      (result, status) => {
+        // 🎯 문자열 "OK"로 안전하게 비교
+        if (status === "OK" && result) {
           const legPaths = result.routes[0].legs.flatMap(
-            (leg: google.maps.DirectionsLeg) =>
-              leg.steps.flatMap((step: google.maps.DirectionsStep) =>
-                step.path.map((p: google.maps.LatLng) => ({
+            (leg: any) =>
+              leg.steps.flatMap((step: any) =>
+                step.path.map((p: any) => ({
                   lat: p.lat(),
                   lng: p.lng(),
                 })),
@@ -86,7 +89,7 @@ function SingleDayDirections({
         }
       },
     );
-  }, [map, places]);
+  }, [map, places, routesLibrary]);
 
   if (routePath.length === 0) return null;
   return (
@@ -98,6 +101,8 @@ function SingleDayDirections({
     />
   );
 }
+
+
 
 export default function GoogleMapSection({
   itinerary,
