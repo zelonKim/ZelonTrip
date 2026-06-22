@@ -42,7 +42,7 @@ export default function MenuTabBar() {
   ];
 
   // 상세 페이지나 AI 답변 등 하단 탭바를 숨겨야 하는 웹 주소 예외 처리
-  const hiddenPaths = ["/plan/", "/answer", "/notice", "/login"];
+  const hiddenPaths = ["/plan/", "/answer", "/notice", "/login", "/signup"];
   const shouldHide = hiddenPaths.some((path) => pathname.startsWith(path));
 
   if (shouldHide) return null;

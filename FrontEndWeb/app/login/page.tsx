@@ -71,16 +71,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full bg-white flex flex-col justify-center items-center px-6 py-12">
       <div className="w-full max-w-sm space-y-8">
-        <div className="flex flex-col items-center text-center">
-          <h1 className="text-3xl font-black text-blue-600 tracking-tight mb-2 select-none">
-            ZelonTrip 🤖
+        <div className="flex flex-col items-center text-center mb-10">
+          <h1 className="text-[32px] font-black text-blue-600 tracking-tight mb-1 select-none">
+            ZelonTrip 🏝️
           </h1>
-          <p className="text-sm font-medium text-gray-500">
-            AI 기반 스마트 여행 플래너
+          <p className="text-[15px] font-medium text-gray-500 ">
+            내가 원하는 맞춤 AI 여행 플래너
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-9">
           <div className="space-y-5">
             <div className="flex flex-col space-y-2">
               <label className="text-sm font-semibold text-gray-700 pl-0.5">
@@ -88,12 +88,12 @@ export default function LoginPage() {
               </label>
               <input
                 type="email"
-                placeholder="example@email.com"
+                placeholder="이메일을 입력해주세요"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isPending}
                 required
-                className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all disabled:opacity-60"
+                className="text-[15px] w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all disabled:opacity-60"
               />
             </div>
 
@@ -108,7 +108,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isPending}
                 required
-                className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all disabled:opacity-60"
+                className="text-[15px] w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all disabled:opacity-60"
               />
             </div>
           </div>
@@ -137,7 +137,7 @@ export default function LoginPage() {
           <span className="text-gray-500">아직 계정이 없으신가요?</span>
           <Link
             href="/signup"
-            className={`text-blue-600 hover:text-blue-700 underline transition-colors ${
+            className={`text-blue-600 font-semibold hover:text-blue-700 hover:underline hover:font-bold transition-colors ${
               isPending ? "pointer-events-none opacity-50" : ""
             }`}
           >
