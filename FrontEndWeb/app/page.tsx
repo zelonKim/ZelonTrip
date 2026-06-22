@@ -194,7 +194,7 @@ export default function HomeContent() {
 
   return (
     <div
-      className={`md:px-6 lg:px-12 xl:px-24 min-h-screen pb-16 transition-colors duration-200 ${
+      className={`max-w-6xl mx-auto min-h-screen pb-16 transition-colors duration-200 ${
         isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
       }`}
     >
@@ -379,7 +379,7 @@ export default function HomeContent() {
               )}
             </div>
           ) : (
-            <div className="flex gap-5 overflow-x-auto pb-4 snap-x no-scrollbar">
+            <div className="flex gap-4 overflow-x-auto pb-4 snap-x no-scrollbar">
               {recommendedPlans && recommendedPlans.length > 0 ? (
                 recommendedPlans.map((item: any, index: number) => (
                   <div

@@ -73,10 +73,10 @@ export default function PlansPage() {
         isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
       }`}
     >
-      <div className="sm:px-6 md:px-12 lg:px-24 xl:px-36 mx-auto pt-10 px-4">
+      <div className="max-w-5xl mx-auto pt-10 px-4">
         {/* 헤더 섹션 */}
         <header
-          className={`mb-6 border-b pb-4 ${isDarkMode ? "border-gray-800" : "border-b-transparent"}`}
+          className={`mb-3 border-b pb-4 ${isDarkMode ? "border-gray-800" : "border-b-transparent"}`}
         >
           <h1 className="text-2xl font-bold mb-1.5">나의 여행 일정 🗓️</h1>
           <p
@@ -110,10 +110,10 @@ export default function PlansPage() {
               <div
                 key={plan.id}
                 onClick={() => handlePlanPress(plan.id)}
-                className={`border rounded-2xl p-4.5 shadow-sm cursor-pointer transition-all active:scale-[0.99] ${
+                className={`border rounded-2xl p-4.5 shadow-sm cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] hover:shadow-md ${
                   isDarkMode
-                    ? "bg-gray-800 border-gray-700 hover:border-gray-600"
-                    : "bg-white border-gray-200 hover:border-gray-300"
+                    ? "bg-gray-800 border-gray-700 hover:border-blue-500"
+                    : "bg-white border-gray-200 hover:border-blue-400"
                 }`}
               >
                 {/* 카드 상단 정보 */}
