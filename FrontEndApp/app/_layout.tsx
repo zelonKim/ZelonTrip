@@ -19,6 +19,9 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import * as FileSystem from "expo-file-system";
 import { useColorScheme } from "react-native";
 
+
+SplashScreen.preventAutoHideAsync();
+
 // 🔐 1. 기존 인증 관련 Context 유지
 const AuthContext = createContext<{
   isLoggedIn: boolean;
@@ -37,7 +40,7 @@ export const useAppTheme = () => useContext(ThemeContext);
 
 const THEME_CONFIG_PATH = `${FileSystem.documentDirectory}theme_config.json`;
 
-SplashScreen.preventAutoHideAsync();
+
 
 // 💡 전역 프로바이더들을 묶어주는 컴포넌트 (isDarkMode 상태를 받아 테마 반영)
 const Providers = ({
