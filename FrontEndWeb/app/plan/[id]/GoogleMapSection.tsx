@@ -8,9 +8,8 @@ import {
   Polyline,
   InfoWindow,
   useMap,
-  useMapsLibrary, 
+  useMapsLibrary,
 } from "@vis.gl/react-google-maps";
-
 
 interface Place {
   place_name: string;
@@ -27,8 +26,6 @@ interface ItineraryItem {
 
 const dayColors = ["#2563EB", "#F59E0B", "#10B981", "#8B5CF6", "#EF4444"];
 
-
-
 function SingleDayDirections({
   places,
   color,
@@ -37,14 +34,14 @@ function SingleDayDirections({
   color: string;
 }) {
   const map = useMap();
-  const routesLibrary = useMapsLibrary("routes"); 
+  const routesLibrary = useMapsLibrary("routes");
   const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
 
   useEffect(() => {
     if (!map || !places || places.length < 2 || !routesLibrary) return;
 
     const directionsService = new routesLibrary.DirectionsService();
-    
+
     const origin = {
       lat: Number(places[0].latitude),
       lng: Number(places[0].longitude),
@@ -63,23 +60,43 @@ function SingleDayDirections({
         origin,
         destination,
         waypoints,
-        travelMode: "DRIVING" as google.maps.TravelMode, // 🎯 안전하게 문자열 기반 캐스팅으로 변경
+        travelMode: "DRIVING" as google.maps.TravelMode,
         optimizeWaypoints: true,
       },
       (result, status) => {
-        // 🎯 문자열 "OK"로 안전하게 비교
-        if (status === "OK" && result) {
-          const legPaths = result.routes[0].legs.flatMap(
-            (leg: any) =>
-              leg.steps.flatMap((step: any) =>
-                step.path.map((p: any) => ({
-                  lat: p.lat(),
-                  lng: p.lng(),
-                })),
-              ),
-          );
-          setRoutePath(legPaths);
+        // 🎯 [보완] status가 OK여도 result.routes 구조가 완벽히 존재하는지 한 번 더 이중 검증합니다.
+        if (status === "OK" && result && result.routes && result.routes[0]) {
+          try {
+            const legs = result.routes[0].legs || [];
+            const legPaths = legs.flatMap((leg: any) => {
+              const steps = leg.steps || [];
+              return steps.flatMap((step: any) => {
+                // step.path가 없거나 비어있을 경우를 대비해 안전하게 방어합니다.
+                const pathArray =
+                  typeof step.path?.getArray === "function"
+                    ? step.path.getArray()
+                    : step.path || [];
+
+                return pathArray.map((p: any) => ({
+                  lat: typeof p.lat === "function" ? p.lat() : p.lat,
+                  lng: typeof p.lng === "function" ? p.lng() : p.lng,
+                }));
+              });
+            });
+
+            setRoutePath(legPaths);
+          } catch (e) {
+            // 🎯 만약 데이터를 뜯어내다 예상치 못한 에러가 나면, 크래시를 내지 않고 직선 좌표로 안전하게 후퇴합니다.
+            console.error("경로 데이터 가공 중 에러 발생, 직선으로 대체:", e);
+            setRoutePath(
+              places.map((p) => ({
+                lat: Number(p.latitude),
+                lng: Number(p.longitude),
+              })),
+            );
+          }
         } else {
+          // 구글 맵 통신 실패(예: 키 차단) 시 안전하게 마커 간 직선 연결로 대체하여 화면 붕괴 방지
           setRoutePath(
             places.map((p) => ({
               lat: Number(p.latitude),
