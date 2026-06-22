@@ -28,6 +28,7 @@ client.interceptors.response.use(
       if (typeof window !== "undefined") {
         if (ls) ls.remove("userToken");
         window.location.href = "/login";
+        alert('ZelonTrip에 로그인 해주세요.')
       }
     }
     return Promise.reject(error);

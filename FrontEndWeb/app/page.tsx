@@ -379,7 +379,7 @@ export default function HomeContent() {
               )}
             </div>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-4 snap-x no-scrollbar">
+            <div className="flex gap-5 overflow-x-auto pb-4 snap-x no-scrollbar">
               {recommendedPlans && recommendedPlans.length > 0 ? (
                 recommendedPlans.map((item: any, index: number) => (
                   <div

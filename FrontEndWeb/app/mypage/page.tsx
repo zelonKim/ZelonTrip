@@ -177,7 +177,7 @@ export default function MyPagePage() {
       }`}
     >
       {/* 메인 레이아웃 컨테이너 */}
-      <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
         {/* 헤더 영역 */}
         <header
           className={`pb-4 mb-6 border-b ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}
