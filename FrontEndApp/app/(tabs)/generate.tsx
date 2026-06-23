@@ -184,14 +184,29 @@ export default function GenerateScreen() {
       .post("/v1/notification", {
         pushToken: cachedPushToken,
         deviceId: cachedDeviceId,
+        planId,
         contents: {
           title: "생성 완료 🤗",
           body: `${location} 여행 플랜이 생성되었습니다`,
           message: "AI가 생성한 여행 플랜을 보완할 수도 있어요.",
         },
-        data: { planId },
       })
-      .catch((err) => console.log("푸시 알림 요청 실패:", err));
+      .catch((err) => {
+        console.log("=== 🚨 푸시 알림 요청 실패 상세 로그 ===");
+        if (err.response) {
+          console.log("상태 코드 (Status):", err.response.status);
+          console.log(
+            "서버 에러 상세 (Data):",
+            JSON.stringify(err.response.data, null, 2),
+          );
+        } else if (err.request) {
+          console.log("요청 전송 성공했으나 응답 없음 (Request):", err.request);
+        } else {
+          console.log("에러 메시지 (Message):", err.message);
+        }
+        console.log("전체 에러 오브젝트:", err.config);
+        console.log("=======================================");
+      });
   };
 
   // 입력 데이터 상태 관리
@@ -222,11 +237,11 @@ export default function GenerateScreen() {
     },
     onSuccess: (res) => {
       sendSuccessNotification(res.id);
-
       queryClient.invalidateQueries({ queryKey: ["tripList"] });
       queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
       queryClient.invalidateQueries({ queryKey: ["userTripStats"] });
       queryClient.invalidateQueries({ queryKey: ["tripRecommend"] });
+      setLocation("");
 
       Alert.alert(
         "일정 생성 완료 🎉",

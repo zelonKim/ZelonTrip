@@ -44,7 +44,7 @@ export async function registerForPushNotificationsAsync() {
     try {
       const pushTokenString = (await Notifications.getDevicePushTokenAsync())
         .data;
-      console.log(pushTokenString);
+      console.log("푸시 토큰 스트링", pushTokenString);
       return pushTokenString;
     } catch (e: unknown) {
       handleRegistrationError(e as string);
