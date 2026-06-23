@@ -625,6 +625,7 @@ const styles = StyleSheet.create({
   scrollContainer: { paddingHorizontal: 20 },
   header: { marginBottom: 24 },
   headerTitle: {
+    marginTop: 16,
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 6,

@@ -51,6 +51,7 @@ export default function NotificationScreen() {
     try {
       const data = await AsyncStorage.getItem("zelontrip_notifications");
       if (data) {
+        console.log(data);
         setNotifications(JSON.parse(data));
       }
     } catch (error) {
@@ -87,7 +88,7 @@ export default function NotificationScreen() {
     });
 
     return (
-      <Pressable
+      <TouchableOpacity
         style={[styles.card, theme.cardBg]}
         onPress={() => {
           // 알림 클릭 시 등록된 플랜 상세 페이지로 연동 이동 (딥링크 역할 수행)
@@ -117,7 +118,7 @@ export default function NotificationScreen() {
         </View>
         <Text style={[styles.cardTitle, theme.textMain]}>{item.title}</Text>
         <Text style={[styles.cardBody, theme.textSub]}>{item.body}</Text>
-      </Pressable>
+      </TouchableOpacity>
     );
   };
 

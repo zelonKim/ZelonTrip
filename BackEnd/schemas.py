@@ -340,3 +340,7 @@ class NotificationRequest(BaseModel):
     pushToken: str
     deviceId: str
     contents: NotificationContents
+    planId: str | None = None 
+
+
+

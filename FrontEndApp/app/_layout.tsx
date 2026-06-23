@@ -18,7 +18,7 @@ import * as SecureStore from "expo-secure-store";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import * as FileSystem from "expo-file-system";
 import { useColorScheme } from "react-native";
-
+import { StatusBar } from "expo-status-bar";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -39,8 +39,6 @@ const ThemeContext = createContext<{
 export const useAppTheme = () => useContext(ThemeContext);
 
 const THEME_CONFIG_PATH = `${FileSystem.documentDirectory}theme_config.json`;
-
-
 
 // 💡 전역 프로바이더들을 묶어주는 컴포넌트 (isDarkMode 상태를 받아 테마 반영)
 const Providers = ({
@@ -140,6 +138,10 @@ export default function RootLayout() {
     <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode }}>
       <AuthContext.Provider value={{ isLoggedIn, checkAuthStatus }}>
         <Providers isDarkMode={isDarkMode}>
+          <StatusBar
+            style={isDarkMode ? "light" : "dark"}
+            backgroundColor={isDarkMode ? "black" : "white"}
+          />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Protected guard={!isLoggedIn}>
               <Stack.Screen name="(auth)" />

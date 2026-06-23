@@ -78,6 +78,10 @@ export default function HomeScreen() {
   const saveNotificationToStorage = async (
     notification: Notifications.Notification,
   ) => {
+    console.log(
+      "🔥 알림 전체 수신 데이터 (content.data):",
+      JSON.stringify(notification.request.content.data, null, 2),
+    );
     try {
       const existingData = await AsyncStorage.getItem(
         "zelontrip_notifications",

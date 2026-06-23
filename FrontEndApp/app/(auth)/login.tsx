@@ -75,6 +75,10 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.select({
+        ios: 30,
+        android: 0,
+      })}
       style={styles.container}
     >
       <ScrollView
@@ -82,20 +86,21 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.title}>ZelonTrip 🤖</Text>
-          <Text style={styles.subtitle}>AI 기반 스마트 여행 플래너</Text>
+          <Text style={styles.title}>ZelonTrip 🏝️</Text>
+          <Text style={styles.subtitle}>내가 원하는 맞춤 AI 여행 플래너</Text>
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>이메일</Text>
           <TextInput
             style={styles.input}
-            placeholder="example@email.com"
+            placeholder="이메일을 입력해주세요"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             editable={!isPending}
+            placeholderTextColor={"gray"}
           />
 
           <Text style={styles.label}>비밀번호</Text>
@@ -107,6 +112,7 @@ export default function LoginScreen() {
             secureTextEntry
             autoCapitalize="none"
             editable={!isPending}
+            placeholderTextColor={"gray"}
           />
         </View>
 
@@ -125,14 +131,18 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => router.push("/(auth)/signup")}
-          style={styles.signupLink}
-          disabled={isPending}
-        >
-          <Text style={{ color: "#6B7280" }}> 아직 계정이 없으신가요? </Text>
-          <Text style={styles.loginLinkText}>회원가입</Text>
-        </TouchableOpacity>
+        <View style={styles.signupLink}>
+          <Text style={{ color: "#6B7280", fontSize: 14 }}>
+            {" "}
+            아직 계정이 없으신가요?{" "}
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/(auth)/signup")}
+            disabled={isPending}
+          >
+            <Text style={styles.loginLinkText}>회원가입</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -140,7 +150,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
-  scrollContainer: { padding: 24, paddingTop: 100 },
+  scrollContainer: { padding: 24, paddingTop: 130 },
   header: { marginBottom: 48, alignItems: "center" },
   title: {
     fontSize: 32,
@@ -149,7 +159,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: -0.5,
   },
-  subtitle: { fontSize: 15, color: "#6B7280", fontWeight: "500" },
+  subtitle: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
   inputGroup: { marginBottom: 32 },
   label: {
     fontSize: 14,
@@ -162,8 +172,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
     borderRadius: 12,
     padding: 16,
-    fontSize: 16,
-    marginBottom: 20,
+    fontSize: 15,
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     color: "#111827",
@@ -184,7 +194,7 @@ const styles = StyleSheet.create({
   loginBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   signupLink: {
-    marginTop: 24,
+    marginTop: 30,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -193,12 +203,11 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     fontSize: 14,
     textDecorationLine: "underline",
-    fontWeight: "500",
+    fontWeight: "600",
   },
   loginLinkText: {
     color: "#2563EB",
     fontSize: 14,
-    fontWeight: "600",
-    textDecorationLine: "underline",
+    fontWeight: "700",
   },
 });

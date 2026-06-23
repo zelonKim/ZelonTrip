@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   errorSubText: { fontSize: 13 },
-  header: { marginBottom: 24 },
+  header: { marginBottom: 24, marginTop: 16 },
   headerTitle: { fontSize: 24, fontWeight: "700", marginBottom: 6 },
   headerSubtitle: { fontSize: 14, lineHeight: 20 },
   emptyBox: {

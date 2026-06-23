@@ -1016,6 +1016,7 @@ if not firebase_admin._apps:
         print(f"⚠️ 경고: {KEY_PATH} 파일이 없어 Firebase를 초기화 할 수 없습니다.")
 
 
+
 @app.post("/api/v1/notification", status_code=status.HTTP_200_OK)
 async def send_generate_notification(request: NotificationRequest):
     try:
@@ -1024,20 +1025,29 @@ async def send_generate_notification(request: NotificationRequest):
         title = request.contents.title
         body = request.contents.body
 
-        additional_data = {"message": request.contents.message, "deviceId": device_id}
+        plan_id_value = str(request.planId) if request.planId else "null"
+
+        additional_data = {
+            "deviceId": str(device_id),
+            "planId": plan_id_value,  
+            "message": str(request.contents.message)
+            if request.contents.message
+            else "",
+        }
 
         message = messaging.Message(
             notification=messaging.Notification(
                 title=title,
                 body=body,
             ),
-            data=additional_data,
+            data=additional_data, 
             token=token,
         )
 
         response = messaging.send(message)
-
-        print(f"📱 디바이스 [{device_id}]로 푸시 알림 발송 성공")
+        print(
+            f"📱 디바이스 [{device_id}]로 푸시 알림 발송 성공 (planId: {plan_id_value})"
+        )
 
         return {
             "success": True,
@@ -1051,6 +1061,8 @@ async def send_generate_notification(request: NotificationRequest):
             detail=f"Firebase 푸시 발송 실패: {str(fe)}",
         )
     except Exception as e:
+        # 🔍 어떤 에러인지 정확히 알기 위해 서버 터미널에도 로그를 출력해 줍니다.
+        print(f"❌ 푸시 알림 발송 중 백엔드 에러 발생: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"서버 내부 오류: {str(e)}",

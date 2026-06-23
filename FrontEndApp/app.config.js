@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "ZelonTrip",
     slug: "zelontrip",
-    scheme: "zelontrip", 
+    scheme: "zelontrip",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
@@ -15,7 +15,6 @@ module.exports = {
     userInterfaceStyle: "automatic",
     splash: {
       image: "./assets/images/splash.png",
-      resizeMode: "contain",
       backgroundColor: "#ffffff",
       statusBarStyle: "dark",
       statusBarTranslucent: true,
