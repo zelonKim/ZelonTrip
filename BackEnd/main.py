@@ -42,7 +42,8 @@ from typing import List
 import httpx
 import firebase_admin
 import json
-
+from firebase_admin import credentials, messaging
+from firebase_admin.exceptions import FirebaseError
 
 load_dotenv()
 
@@ -1008,25 +1009,29 @@ async def get_notice_detail(id: int, db: SessionDep):
 
 KEY_PATH = "google-service-key.json"
 
-# 🚀 [개선] 확실하고 직관적인 하이브리드 초기화 로직
 if not firebase_admin._apps:
     firebase_env = os.getenv("FIREBASE_CONFIG_JSON")
-
+    
     if firebase_env:
         try:
             cred_dict = json.loads(firebase_env)
-            cred = firebase_admin.credentials.Certificate(cred_dict)
+            # 💡 firebase_admin.credentials 대신 import한 credentials 바로 사용
+            cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             print("🚀 [Railway] Firebase Admin SDK 초기화 성공!")
         except Exception as e:
             print(f"❌ [Railway] 환경 변수 기반 Firebase 초기화 실패: {str(e)}")
-
+            
     elif os.path.exists(KEY_PATH):
-        cred = firebase_admin.credentials.Certificate(KEY_PATH)
-        firebase_admin.initialize_app(cred)
-        print("💻 [Local] 구글 키 파일 기반 Firebase 초기화 성공!")
+        try:
+            cred = credentials.Certificate(KEY_PATH)
+            firebase_admin.initialize_app(cred)
+            print("💻 [Local] 구글 키 파일 기반 Firebase 초기화 성공!")
+        except Exception as e:
+            print(f"❌ [Local] 파일 기반 Firebase 초기화 실패: {str(e)}")
     else:
         print("⚠️ 경고: Firebase를 초기화할 수 있는 수단이 없습니다.")
+
 
 
 @app.post("/api/v1/notification", status_code=status.HTTP_200_OK)
@@ -1034,15 +1039,15 @@ async def send_generate_notification(request: NotificationRequest):
     if not firebase_admin._apps:
         firebase_env = os.getenv("FIREBASE_CONFIG_JSON")
         if firebase_env:
-            cred = firebase_admin.credentials.Certificate(json.loads(firebase_env))
+            cred = credentials.Certificate(json.loads(firebase_env))
             firebase_admin.initialize_app(cred)
         elif os.path.exists(KEY_PATH):
-            cred = firebase_admin.credentials.Certificate(KEY_PATH)
+            cred = credentials.Certificate(KEY_PATH)
             firebase_admin.initialize_app(cred)
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Firebase SDK가 초기화되지 않았습니다. 환경 변수나 키 파일을 확인하세요.",
+                detail="Firebase SDK가 초기화되지 않았습니다. 환경 변수나 키 파일을 확인하세요."
             )
 
     try:
@@ -1050,19 +1055,18 @@ async def send_generate_notification(request: NotificationRequest):
         device_id = request.deviceId
         title = request.contents.title
         body = request.contents.body
-
+        
         plan_id_value = str(request.planId) if request.planId else "null"
 
         additional_data = {
             "deviceId": str(device_id),
             "planId": plan_id_value,
-            "message": str(request.contents.message)
-            if request.contents.message
-            else "",
+            "message": str(request.contents.message) if request.contents.message else ""
         }
 
-        message = firebase_admin.messaging.Message(
-            notification=firebase_admin.messaging.Notification(
+        # 🚀 [수정] firebase_admin.messaging.Message 대신 가볍게 기재
+        message = messaging.Message(
+            notification=messaging.Notification(
                 title=title,
                 body=body,
             ),
@@ -1070,7 +1074,8 @@ async def send_generate_notification(request: NotificationRequest):
             token=token,
         )
 
-        response = firebase_admin.messaging.send(message)
+        # 🚀 [수정] 발송 메서드도 매핑 주소 단축
+        response = messaging.send(message)
         print(f"📱 푸시 알림 발송 성공! ID: {response} (planId: {plan_id_value})")
 
         return {
@@ -1079,9 +1084,7 @@ async def send_generate_notification(request: NotificationRequest):
             "fcm_message_id": response,
         }
 
-    except (
-        firebase_admin.exceptions.FirebaseError
-    ) as fe:  # 💡 고쳐진 Firebase 예외 처리 규칙
+    except FirebaseError as fe: # 💡 [수정] 깔끔하게 단독 클래스로 캐치
         print(f"❌ [FirebaseError] 푸시 전송 자체 실패: {str(fe)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1089,7 +1092,6 @@ async def send_generate_notification(request: NotificationRequest):
         )
     except Exception as e:
         import traceback
-
         print("❌ [InternalServerError] 런타임 코드 터짐:")
         traceback.print_exc()
         raise HTTPException(
