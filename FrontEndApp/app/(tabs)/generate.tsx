@@ -184,7 +184,7 @@ export default function GenerateScreen() {
       .post("/v1/notification", {
         pushToken: cachedPushToken,
         deviceId: cachedDeviceId,
-        planId,
+        planId: planId ? String(planId) : null,
         contents: {
           title: "생성 완료 🤗",
           body: `${location} 여행 플랜이 생성되었습니다`,

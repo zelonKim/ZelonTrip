@@ -41,7 +41,7 @@ from sqlalchemy import func
 from typing import List
 import httpx
 import firebase_admin
-from firebase_admin import credentials, messaging
+import json
 
 
 load_dotenv()
@@ -1008,17 +1008,43 @@ async def get_notice_detail(id: int, db: SessionDep):
 
 KEY_PATH = "google-service-key.json"
 
+# 🚀 [개선] 확실하고 직관적인 하이브리드 초기화 로직
 if not firebase_admin._apps:
-    if os.path.exists(KEY_PATH):
-        cred = credentials.Certificate(KEY_PATH)
-        firebase_admin.initialize_app(cred)
-    else:
-        print(f"⚠️ 경고: {KEY_PATH} 파일이 없어 Firebase를 초기화 할 수 없습니다.")
+    firebase_env = os.getenv("FIREBASE_CONFIG_JSON")
 
+    if firebase_env:
+        try:
+            cred_dict = json.loads(firebase_env)
+            cred = firebase_admin.credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("🚀 [Railway] Firebase Admin SDK 초기화 성공!")
+        except Exception as e:
+            print(f"❌ [Railway] 환경 변수 기반 Firebase 초기화 실패: {str(e)}")
+
+    elif os.path.exists(KEY_PATH):
+        cred = firebase_admin.credentials.Certificate(KEY_PATH)
+        firebase_admin.initialize_app(cred)
+        print("💻 [Local] 구글 키 파일 기반 Firebase 초기화 성공!")
+    else:
+        print("⚠️ 경고: Firebase를 초기화할 수 있는 수단이 없습니다.")
 
 
 @app.post("/api/v1/notification", status_code=status.HTTP_200_OK)
 async def send_generate_notification(request: NotificationRequest):
+    if not firebase_admin._apps:
+        firebase_env = os.getenv("FIREBASE_CONFIG_JSON")
+        if firebase_env:
+            cred = firebase_admin.credentials.Certificate(json.loads(firebase_env))
+            firebase_admin.initialize_app(cred)
+        elif os.path.exists(KEY_PATH):
+            cred = firebase_admin.credentials.Certificate(KEY_PATH)
+            firebase_admin.initialize_app(cred)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Firebase SDK가 초기화되지 않았습니다. 환경 변수나 키 파일을 확인하세요.",
+            )
+
     try:
         token = request.pushToken
         device_id = request.deviceId
@@ -1029,25 +1055,23 @@ async def send_generate_notification(request: NotificationRequest):
 
         additional_data = {
             "deviceId": str(device_id),
-            "planId": plan_id_value,  
+            "planId": plan_id_value,
             "message": str(request.contents.message)
             if request.contents.message
             else "",
         }
 
-        message = messaging.Message(
-            notification=messaging.Notification(
+        message = firebase_admin.messaging.Message(
+            notification=firebase_admin.messaging.Notification(
                 title=title,
                 body=body,
             ),
-            data=additional_data, 
+            data=additional_data,
             token=token,
         )
 
-        response = messaging.send(message)
-        print(
-            f"📱 디바이스 [{device_id}]로 푸시 알림 발송 성공 (planId: {plan_id_value})"
-        )
+        response = firebase_admin.messaging.send(message)
+        print(f"📱 푸시 알림 발송 성공! ID: {response} (planId: {plan_id_value})")
 
         return {
             "success": True,
@@ -1055,14 +1079,19 @@ async def send_generate_notification(request: NotificationRequest):
             "fcm_message_id": response,
         }
 
-    except messaging.FirebaseError as fe:
+    except (
+        firebase_admin.exceptions.FirebaseError
+    ) as fe:  # 💡 고쳐진 Firebase 예외 처리 규칙
+        print(f"❌ [FirebaseError] 푸시 전송 자체 실패: {str(fe)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Firebase 푸시 발송 실패: {str(fe)}",
         )
     except Exception as e:
-        # 🔍 어떤 에러인지 정확히 알기 위해 서버 터미널에도 로그를 출력해 줍니다.
-        print(f"❌ 푸시 알림 발송 중 백엔드 에러 발생: {str(e)}")
+        import traceback
+
+        print("❌ [InternalServerError] 런타임 코드 터짐:")
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"서버 내부 오류: {str(e)}",
