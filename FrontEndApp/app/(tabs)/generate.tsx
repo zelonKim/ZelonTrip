@@ -135,6 +135,8 @@ export default function GenerateScreen() {
   const [cachedPushToken, setCachedPushToken] = useState<string | null>(null);
   const [cachedDeviceId, setCachedDeviceId] = useState<string | null>(null);
 
+  const isNotificationSent = useRef(false);
+
   const notificationsListener = useRef<Notifications.EventSubscription | null>(
     null,
   );
@@ -180,6 +182,12 @@ export default function GenerateScreen() {
       return;
     }
 
+    if (isNotificationSent.current) {
+      return;
+    }
+
+    isNotificationSent.current = true;
+
     client
       .post("/v1/notification", {
         pushToken: cachedPushToken,
@@ -193,6 +201,9 @@ export default function GenerateScreen() {
       })
       .catch((err) => {
         console.log("=== 🚨 푸시 알림 요청 실패 상세 로그 ===");
+
+        isNotificationSent.current = false;
+
         if (err.response) {
           console.log("상태 코드 (Status):", err.response.status);
           console.log(
@@ -250,6 +261,8 @@ export default function GenerateScreen() {
           {
             text: "확인하러 가기",
             onPress: () => {
+              isNotificationSent.current = false;
+              
               router.push({
                 pathname: "/(tabs)/plan/[id]",
                 params: { id: res.id },
