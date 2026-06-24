@@ -328,28 +328,92 @@ export default function LoginPage() {
               </>
             )}
 
-            {/* 🍏 탭 2: iOS 활성화 시 랜더링 */}
             {activeTab === "ios" && (
               <div
-                className={`w-full h-72 rounded-2xl flex flex-col items-center justify-center p-6 text-center border border-dashed animate-fade-in ${
+                className={`w-full max-w-sm mx-auto rounded-2xl flex flex-col p-6 border animate-fade-in ${
                   isDarkMode
-                    ? "bg-gray-900/30 border-gray-700 text-gray-300"
-                    : "bg-gray-50 border-gray-200 text-gray-600"
+                    ? "bg-gray-900/30 border-gray-800 text-gray-300"
+                    : "bg-gray-50 border-gray-100 text-gray-600 shadow-sm"
                 }`}
               >
-                <div className="text-4xl mb-4 select-none">⏳</div>
-                <h4 className="text-sm font-bold text-blue-500 dark:text-blue-400 mb-2">
-                  Apple 심사 진행 중...
-                </h4>
+                {/* 1. 상단: QR 코드 영역 */}
+                <div className="flex flex-col items-center text-center mb-5">
+                  <div
+                    className={`p-3 rounded-xl mb-3 bg-white shadow-sm border ${
+                      isDarkMode ? "border-gray-800" : "border-gray-100"
+                    }`}
+                  >
+                    <img
+                      src="/QR/ios_app_install.png"
+                      alt="ZelonTrip TestFlight QR"
+                      className="w-36 h-36 object-contain select-none"
+                    />
+                  </div>
+
+                  <p
+                    className={`text-[12px] leading-relaxed max-w-[260px] ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                  >
+                    아이폰 카메라로 QR 코드를 스캔하면
+                    <br />
+                    <span className="font-semibold text-blue-500 dark:text-blue-400">
+                      TestFlight
+                    </span>
+                    를 통해 앱을 설치할 수 있습니다.
+                  </p>
+                </div>
+
+                {/* 2. 중간: 정보 테이블 영역 */}
+                <div className="space-y-3.5 px-1">
+                  {/* 지원 환경 */}
+                  <div className="flex justify-between items-center">
+                    <span
+                      className={`text-[12.5px] font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      지원 환경:
+                    </span>
+                    <span className="text-[12.5px] font-bold text-blue-500 dark:text-blue-400">
+                      iOS (TestFlight)
+                    </span>
+                  </div>
+
+                  {/* 테스트 계정 */}
+                  <div className="flex justify-between items-center">
+                    <span
+                      className={`text-[12.5px] font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      테스트 계정:
+                    </span>
+                    <span className="text-[12.5px] font-bold text-blue-600 dark:text-blue-400 font-mono">
+                      test@zelon.com
+                    </span>
+                  </div>
+
+                  {/* 비밀번호 */}
+                  <div className="flex justify-between items-center">
+                    <span
+                      className={`text-[12.5px] font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      비밀번호:
+                    </span>
+                    <span className="text-[12.5px] font-bold text-blue-600 dark:text-blue-400 font-mono">
+                      zelon1234
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. 하단: 점선 구분선 및 주의사항 */}
+                <div
+                  className={`my-4 border-t border-dashed ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}
+                />
+
                 <p
-                  className={`text-[12.5px] leading-relaxed max-w-[250px] ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                  className={`text-[11px] leading-relaxed px-1 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
                 >
-                  현재 앱이 TestFlight 심사를 거치는 중입니다.
-                </p>
-                <p
-                  className={`text-[11px] mt-4 font-semibold px-2.5 py-1 rounded-md ${isDarkMode ? "bg-gray-800 text-gray-500" : "bg-gray-200 text-gray-400"}`}
-                >
-                  iOS 앱 배포 중
+                  * 테스터 참여를 위해 기기에{" "}
+                  <span className="font-semibold text-blue-500 dark:text-blue-400">
+                    TestFlight
+                  </span>{" "}
+                  앱이 먼저 설치되어 있어야 합니다.
                 </p>
               </div>
             )}
