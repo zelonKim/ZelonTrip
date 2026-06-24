@@ -6,13 +6,13 @@ module.exports = {
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
+    userInterfaceStyle: "light",
     extra: {
       eas: {
         projectId: "2e00e830-61a1-4abc-84b8-8c56dc8c3780",
       },
       router: {},
     },
-    userInterfaceStyle: "automatic",
     splash: {
       image: "./assets/images/splash.png",
       backgroundColor: "#ffffff",
@@ -22,6 +22,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.zelon.zelontrip",
+      userInterfaceStyle: "light",
       infoPlist: {
         LSApplicationQueriesSchemes: ["comgooglemaps"],
         NSLocationWhenInUseUsageDescription:
@@ -31,6 +32,7 @@ module.exports = {
     android: {
       package: "com.zelon.zelontrip",
       googleServicesFile: "./google-services.json",
+      userInterfaceStyle: "light",
       config: {
         googleMaps: {
           apiKey: "AIzaSyCa-PhoSYV5rJABHNGqinTL62I2i17vp00",

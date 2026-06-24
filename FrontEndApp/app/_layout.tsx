@@ -73,9 +73,7 @@ export default function RootLayout() {
   const systemColorScheme = useColorScheme();
 
   // 🌓 테마 및 🔐 인증 상태 통합 관리
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(
-    systemColorScheme === "dark",
-  );
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
 

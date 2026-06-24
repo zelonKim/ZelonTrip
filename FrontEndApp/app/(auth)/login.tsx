@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useMutation } from "@tanstack/react-query";
 import { client } from "@/api/client";
-import { useAuth } from "../_layout";
+import { useAppTheme, useAuth } from "../_layout";
 
 interface LoginCredentials {
   email: string;
@@ -36,6 +36,8 @@ const loginApi = async (credentials: LoginCredentials) => {
 };
 
 export default function LoginScreen() {
+  const { isDarkMode } = useAppTheme();
+
   const router = useRouter();
   const { checkAuthStatus } = useAuth();
 
@@ -46,12 +48,9 @@ export default function LoginScreen() {
     mutationFn: loginApi,
     onSuccess: async (data) => {
       const { access_token } = data;
-
       if (access_token) {
         await SecureStore.setItemAsync("userToken", access_token);
-
         await checkAuthStatus();
-
         router.replace("/(tabs)");
       } else {
         Alert.alert("안내", "토큰을 받아오지 못했습니다.");
@@ -75,11 +74,11 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.select({
-        ios: 30,
-        android: 0,
-      })}
-      style={styles.container}
+      keyboardVerticalOffset={Platform.select({ ios: 30, android: 0 })}
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? "#111827" : "#FFFFFF" },
+      ]}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
@@ -87,32 +86,66 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>ZelonTrip 🏝️</Text>
-          <Text style={styles.subtitle}>내가 원하는 맞춤 AI 여행 플래너</Text>
+          <Text
+            style={[
+              styles.subtitle,
+              { color: isDarkMode ? "#E5E7EB" : "#6B7280" },
+            ]}
+          >
+            내가 원하는 맞춤 AI 여행 플래너
+          </Text>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>이메일</Text>
+          {/* 올바른 스타일 배열 문법 적용 */}
+          <Text
+            style={[
+              styles.label,
+              { color: isDarkMode ? "#F3F4F6" : "#374151" },
+            ]}
+          >
+            이메일
+          </Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                color: isDarkMode ? "#F3F4F6" : "#111827",
+                backgroundColor: isDarkMode ? "#374151" : "#F9FAFB",
+              },
+            ]}
             placeholder="이메일을 입력해주세요"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             editable={!isPending}
-            placeholderTextColor={"gray"}
+            placeholderTextColor={isDarkMode ? "#9CA3AF" : "gray"}
           />
 
-          <Text style={styles.label}>비밀번호</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: isDarkMode ? "#F3F4F6" : "#374151" },
+            ]}
+          >
+            비밀번호
+          </Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                color: isDarkMode ? "#F3F4F6" : "#111827",
+                backgroundColor: isDarkMode ? "#374151" : "#F9FAFB",
+              },
+            ]}
             placeholder="비밀번호를 입력해주세요"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
             editable={!isPending}
-            placeholderTextColor={"gray"}
+            placeholderTextColor={isDarkMode ? "#9CA3AF" : "gray"}
           />
         </View>
 
@@ -132,8 +165,9 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <View style={styles.signupLink}>
-          <Text style={{ color: "#6B7280", fontSize: 14 }}>
-            {" "}
+          <Text
+            style={{ color: isDarkMode ? "#E5E7EB" : "#374151", fontSize: 14 }}
+          >
             아직 계정이 없으신가요?{" "}
           </Text>
           <TouchableOpacity
@@ -149,7 +183,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1 },
   scrollContainer: { padding: 24, paddingTop: 130 },
   header: { marginBottom: 48, alignItems: "center" },
   title: {
@@ -159,12 +193,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: -0.5,
   },
-  subtitle: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
+
+  subtitle: { fontSize: 13, fontWeight: "500" },
   inputGroup: { marginBottom: 32 },
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#374151",
     marginBottom: 8,
     paddingLeft: 2,
   },

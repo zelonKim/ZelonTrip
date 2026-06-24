@@ -14,11 +14,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("zelontrip_theme");
-    // 로컬스토리지 기록이 있거나, 없으면 시스템 다크모드 설정을 따라감
-    const isDark =
-      savedTheme === "dark" ||
-      (!savedTheme &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const isDark = savedTheme === "dark";
 
     setIsDarkMode(isDark);
 
@@ -30,7 +26,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
 
-  // 2. 테마 변경 함수
   const toggleDarkMode = () => {
     const nextMode = !isDarkMode;
     setIsDarkMode(nextMode);
