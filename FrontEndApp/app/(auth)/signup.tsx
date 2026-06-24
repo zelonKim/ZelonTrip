@@ -174,7 +174,10 @@ export default function SignupScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
-  scrollContainer: { padding: 24, paddingTop: 80 },
+  scrollContainer: {
+    padding: 24,
+    paddingTop: Platform.OS === "ios" ? 130 : 80,
+  },
   header: { marginBottom: 40 },
   title: { fontSize: 28, fontWeight: "800", color: "#111827", marginBottom: 8 },
   subtitle: { fontSize: 15, color: "#6B7280" },
@@ -216,6 +219,6 @@ const styles = StyleSheet.create({
   loginLinkText: {
     color: "#2563EB",
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "800",
   },
 });

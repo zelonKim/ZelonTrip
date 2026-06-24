@@ -111,6 +111,7 @@ export default function LoginScreen() {
               styles.input,
               {
                 color: isDarkMode ? "#F3F4F6" : "#111827",
+                borderColor: isDarkMode ? "#111827" : "#E5E7EB",
                 backgroundColor: isDarkMode ? "#374151" : "#F9FAFB",
               },
             ]}
@@ -136,6 +137,7 @@ export default function LoginScreen() {
               styles.input,
               {
                 color: isDarkMode ? "#F3F4F6" : "#111827",
+                borderColor: isDarkMode ? "#111827" : "#E5E7EB",
                 backgroundColor: isDarkMode ? "#374151" : "#F9FAFB",
               },
             ]}
@@ -184,7 +186,10 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContainer: { padding: 24, paddingTop: 130 },
+  scrollContainer: {
+    padding: 24,
+    paddingTop: Platform.OS === "ios" ? 165 : 130,
+  },
   header: { marginBottom: 48, alignItems: "center" },
   title: {
     fontSize: 32,

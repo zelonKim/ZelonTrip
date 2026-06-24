@@ -12,7 +12,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
-  const tabHeight = 56 + insets.bottom;
+  const tabHeight = (Platform.OS === "ios" ? 36 : 56) + insets.bottom;
 
   return (
     <Tabs
@@ -26,8 +26,8 @@ export default function TabLayout() {
           borderColor: isDarkMode ? "#374151" : "#E5E7EB",
           paddingTop: 6,
         },
-        tabBarActiveTintColor: isDarkMode ? "#60A5FA" : "#2563EB", 
-        tabBarInactiveTintColor: isDarkMode ? "#9CA3AF" : "#6B7280", 
+        tabBarActiveTintColor: isDarkMode ? "#60A5FA" : "#2563EB",
+        tabBarInactiveTintColor: isDarkMode ? "#9CA3AF" : "#6B7280",
       }}
     >
       <Tabs.Screen
