@@ -339,18 +339,17 @@ export default function LoginPage() {
               >
                 <div className="text-4xl mb-4 select-none">⏳</div>
                 <h4 className="text-sm font-bold text-blue-500 dark:text-blue-400 mb-2">
-                  Apple 가입 심사 진행 중
+                  Apple 심사 진행 중...
                 </h4>
                 <p
-                  className={`text-xs leading-relaxed max-w-[220px] ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                  className={`text-[12.5px] leading-relaxed max-w-[250px] ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  현재 애플 개발자 계정 승인 및 OCR 버그 수동 심사를 거치는
-                  중입니다.
+                  현재 앱이 TestFlight 심사를 거치는 중입니다.
                 </p>
                 <p
-                  className={`text-[10px] mt-4 font-semibold px-2.5 py-1 rounded-md ${isDarkMode ? "bg-gray-800 text-gray-500" : "bg-gray-200 text-gray-400"}`}
+                  className={`text-[11px] mt-4 font-semibold px-2.5 py-1 rounded-md ${isDarkMode ? "bg-gray-800 text-gray-500" : "bg-gray-200 text-gray-400"}`}
                 >
-                  iOS TestFlight 배포 대기 중
+                  iOS 앱 배포 중
                 </p>
               </div>
             )}
