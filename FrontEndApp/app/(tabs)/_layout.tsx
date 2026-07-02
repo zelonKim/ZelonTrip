@@ -12,7 +12,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
-  const tabHeight = (Platform.OS === "ios" ? 36 : 56) + insets.bottom;
+  const tabHeight = (Platform.OS === "ios" ? 40 : 60) + insets.bottom;
 
   return (
     <Tabs

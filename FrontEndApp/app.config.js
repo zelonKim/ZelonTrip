@@ -22,7 +22,13 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.zelon.zelontrip",
+      googleServicesFile: "./GoogleService-Info.plist",
       userInterfaceStyle: "light",
+      config: {
+        googleMaps: {
+          apiKey: "AIzaSyCVwNFnNPutNoY4NAzlbqKiWVQu3l83hXY",
+        },
+      },
       infoPlist: {
         LSApplicationQueriesSchemes: ["comgooglemaps"],
         NSLocationWhenInUseUsageDescription:
@@ -35,7 +41,7 @@ module.exports = {
       userInterfaceStyle: "light",
       config: {
         googleMaps: {
-          apiKey: "AIzaSyCa-PhoSYV5rJABHNGqinTL62I2i17vp00",
+          apiKey: "AIzaSyD1VBUbwaz3Un_EWCg2gcBo-RgyU0jrAvI",
         },
       },
       adaptiveIcon: {
