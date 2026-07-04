@@ -665,10 +665,23 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
                     search_response = await http_client.get(
                         search_url, params=search_params
                     )
+
+                    # 1. HTTP 상태 코드 검증 로그 추가
+                    if search_response.status_code != 200:
+                        print(
+                            f"❌ [{search_title}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
+                        )
+                        print(f"응답 본문: {search_response.text}")
+
                     search_data = search_response.json()
 
-                    if search_data.get("results") and search_data["results"][0].get(
-                        "photos"
+                    # 2. 구글 API 자체 status 값 추출 및 상세 디버깅 로그
+                    google_status = search_data.get("status")
+
+                    if (
+                        google_status == "OK"
+                        and search_data.get("results")
+                        and search_data["results"][0].get("photos")
                     ):
                         photo_reference = search_data["results"][0]["photos"][0][
                             "photo_reference"
@@ -680,17 +693,37 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
                             f"&photo_reference={photo_reference}"
                             f"&key={GOOGLE_API_KEY}"
                         )
-                        print(f"[{search_title}] 구글 실사 이미지 매칭 성공")
+                        print(f"✅ [{search_title}] 구글 실사 이미지 매칭 성공")
 
                     else:
+                        # 3. 검색 결과가 없거나 오류 응답이 온 경우 구글이 준 진짜 사유 출력
                         print(
-                            f"[{search_title}] 구글 검색 결과 혹은 등록된 사진이 없음 -> 기본 이미지 대체"
+                            f"⚠️ [{search_title}] 구글 검색 결과 및 사진 매칭 실패 (Google Status: {google_status})"
                         )
+                        if google_status != "OK" and google_status != "ZERO_RESULTS":
+                            # REQUEST_DENIED, INVALID_REQUEST, OVER_QUERY_LIMIT 등의 구체적 사유 출력
+                            print(
+                                f"   ㄴ 에러 상세 메시지: {search_data.get('error_message', '설명 없음')}"
+                            )
+                        elif google_status == "ZERO_RESULTS" or not search_data.get(
+                            "results"
+                        ):
+                            print(
+                                f"   ㄴ 사유: 구글 맵에 '{search_title}'로 검색된 장소가 없습니다."
+                            )
+                        else:
+                            print(
+                                f"   ㄴ 사유: 장소는 검색되었으나 등록된 사진(photos) 데이터가 없습니다."
+                            )
+                        print(f"   ㄴ 조치: 기본 이미지로 대체합니다.")
 
                 except Exception as google_err:
+                    # 4. 통신 장애 혹은 JSON 파싱 에러 시 트레이스백을 확인할 수 있도록 에러 타입과 메시지 강화
                     print(
-                        f"구글 플레이스 통신 오류 ({search_title}): {str(google_err)}"
+                        f"🔥 구글 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
                     )
+                    print(f"   ㄴ 에러 종류: {type(google_err).__name__}")
+                    print(f"   ㄴ 에러 내용: {str(google_err)}")
 
                 final_recommendations.append(
                     TripRecommendResponse(
@@ -1011,7 +1044,7 @@ KEY_PATH = "google-service-key.json"
 
 if not firebase_admin._apps:
     firebase_env = os.getenv("FIREBASE_CONFIG_JSON")
-    
+
     if firebase_env:
         try:
             cred_dict = json.loads(firebase_env)
@@ -1021,7 +1054,7 @@ if not firebase_admin._apps:
             print("🚀 [Railway] Firebase Admin SDK 초기화 성공!")
         except Exception as e:
             print(f"❌ [Railway] 환경 변수 기반 Firebase 초기화 실패: {str(e)}")
-            
+
     elif os.path.exists(KEY_PATH):
         try:
             cred = credentials.Certificate(KEY_PATH)
@@ -1031,7 +1064,6 @@ if not firebase_admin._apps:
             print(f"❌ [Local] 파일 기반 Firebase 초기화 실패: {str(e)}")
     else:
         print("⚠️ 경고: Firebase를 초기화할 수 있는 수단이 없습니다.")
-
 
 
 @app.post("/api/v1/notification", status_code=status.HTTP_200_OK)
@@ -1047,7 +1079,7 @@ async def send_generate_notification(request: NotificationRequest):
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Firebase SDK가 초기화되지 않았습니다. 환경 변수나 키 파일을 확인하세요."
+                detail="Firebase SDK가 초기화되지 않았습니다. 환경 변수나 키 파일을 확인하세요.",
             )
 
     try:
@@ -1055,13 +1087,15 @@ async def send_generate_notification(request: NotificationRequest):
         device_id = request.deviceId
         title = request.contents.title
         body = request.contents.body
-        
+
         plan_id_value = str(request.planId) if request.planId else "null"
 
         additional_data = {
             "deviceId": str(device_id),
             "planId": plan_id_value,
-            "message": str(request.contents.message) if request.contents.message else ""
+            "message": str(request.contents.message)
+            if request.contents.message
+            else "",
         }
 
         # 🚀 [수정] firebase_admin.messaging.Message 대신 가볍게 기재
@@ -1084,7 +1118,7 @@ async def send_generate_notification(request: NotificationRequest):
             "fcm_message_id": response,
         }
 
-    except FirebaseError as fe: # 💡 [수정] 깔끔하게 단독 클래스로 캐치
+    except FirebaseError as fe:  # 💡 [수정] 깔끔하게 단독 클래스로 캐치
         print(f"❌ [FirebaseError] 푸시 전송 자체 실패: {str(fe)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1092,6 +1126,7 @@ async def send_generate_notification(request: NotificationRequest):
         )
     except Exception as e:
         import traceback
+
         print("❌ [InternalServerError] 런타임 코드 터짐:")
         traceback.print_exc()
         raise HTTPException(
