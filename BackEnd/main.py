@@ -84,7 +84,7 @@ if not openai_key:
 client = AsyncOpenAI(api_key=openai_key)
 
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+PLACES_API_KEY = os.getenv("PLACES_API_KEY")
 
 
 ##########################################
@@ -658,7 +658,7 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
                     )
                     search_params = {
                         "query": search_title,
-                        "key": GOOGLE_API_KEY,
+                        "key": PLACES_API_KEY,
                         "language": "ko",
                     }
 
@@ -691,7 +691,7 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
                             f"https://maps.googleapis.com/maps/api/place/photo"
                             f"?maxwidth=500"
                             f"&photo_reference={photo_reference}"
-                            f"&key={GOOGLE_API_KEY}"
+                            f"&key={PLACES_API_KEY}"
                         )
                         print(f"✅ [{search_title}] 구글 실사 이미지 매칭 성공")
 
@@ -800,7 +800,7 @@ async def get_nearby_recommendations(
 
                 search_params = {
                     "query": search_title,
-                    "key": GOOGLE_API_KEY,
+                    "key": PLACES_API_KEY,
                     "language": "ko",
                 }
 
@@ -820,7 +820,7 @@ async def get_nearby_recommendations(
                         f"https://maps.googleapis.com/maps/api/place/photo"
                         f"?maxwidth=600"
                         f"&photo_reference={photo_reference}"
-                        f"&key={GOOGLE_API_KEY}"
+                        f"&key={PLACES_API_KEY}"
                     )
 
                 final_recommendations.append(
@@ -902,7 +902,7 @@ async def ask_location_info(
             search_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
             search_params = {
                 "query": search_keyword,
-                "key": GOOGLE_API_KEY,
+                "key": PLACES_API_KEY,
                 "language": "ko",
             }
 
@@ -918,7 +918,7 @@ async def ask_location_info(
                     f"https://maps.googleapis.com/maps/api/place/photo"
                     f"?maxwidth=800"
                     f"&photo_reference={photo_reference}"
-                    f"&key={GOOGLE_API_KEY}"
+                    f"&key={PLACES_API_KEY}"
                 )
 
         new_ask_record = models.Ask_Location(
