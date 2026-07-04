@@ -645,85 +645,80 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
 
         final_recommendations = []
 
-        # 💡 4. 구글 API와 통신할 비동기 HTTP 클라이언트 세션 오픈
+        # 💡 구글 신형 API와 통신할 비동기 HTTP 클라이언트 세션 오픈
         async with httpx.AsyncClient() as http_client:
             for index, item in enumerate(ai_result.recommendations):
                 search_title = item.title.strip()
 
+                # 기본 대체 이미지 설정
                 dynamic_image_url = f"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"
 
                 try:
-                    search_url = (
-                        "https://maps.googleapis.com/maps/api/place/textsearch/json"
-                    )
-                    search_params = {
-                        "query": search_title,
-                        "key": PLACES_API_KEY,
-                        "language": "ko",
+                    # 1. 🌟 구글 Places API 신형(New) 엔드포인트 설정
+                    search_url = "https://places.googleapis.com/v1/places:searchText"
+
+                    # 2. 🌟 핵심: 요금 차단을 위해 필수 데이터와 사진만 마스킹 요청 (Contact, Atmosphere 차단)
+                    search_headers = {
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": PLACES_API_KEY,
+                        "X-Goog-FieldMask": "places.id,places.displayName,places.photos",
                     }
 
-                    search_response = await http_client.get(
-                        search_url, params=search_params
+                    # 3. 신형 API JSON 바디 구성
+                    search_body = {"textQuery": search_title, "languageCode": "ko"}
+
+                    # 신형 API는 POST 요청으로 받아야 합니다.
+                    search_response = await http_client.post(
+                        search_url, headers=search_headers, json=search_body
                     )
 
-                    # 1. HTTP 상태 코드 검증 로그 추가
+                    # HTTP 상태 코드 검증
                     if search_response.status_code != 200:
                         print(
                             f"❌ [{search_title}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
                         )
                         print(f"응답 본문: {search_response.text}")
+                        search_data = {}
+                    else:
+                        search_data = search_response.json()
 
-                    search_data = search_response.json()
+                    # 4. 🌟 신형 API 응답 구조 매칭 (구형 'results' -> 신형 'places')
+                    places = search_data.get("places", [])
 
-                    # 2. 구글 API 자체 status 값 추출 및 상세 디버깅 로그
-                    google_status = search_data.get("status")
+                    if places and places[0].get("photos"):
+                        # 신형은 photo_reference 대신 'name' 필드에 리소스 고유 식별자가 담깁니다 (places/중간값/photos/값 형태)
+                        photo_name = places[0]["photos"][0]["name"]
 
-                    if (
-                        google_status == "OK"
-                        and search_data.get("results")
-                        and search_data["results"][0].get("photos")
-                    ):
-                        photo_reference = search_data["results"][0]["photos"][0][
-                            "photo_reference"
-                        ]
-
+                        # 5. 🌟 신형 미디어(Photo) 다운로드 URL 포맷 조립
                         dynamic_image_url = (
-                            f"https://maps.googleapis.com/maps/api/place/photo"
-                            f"?maxwidth=500"
-                            f"&photo_reference={photo_reference}"
+                            f"https://places.googleapis.com/v1/{photo_name}/media"
+                            f"?maxHeightPx=500"
                             f"&key={PLACES_API_KEY}"
                         )
-                        print(f"✅ [{search_title}] 구글 실사 이미지 매칭 성공")
+                        print(
+                            f"✅ [{search_title}] 구글 신형 API 실사 이미지 최적화 매칭 성공"
+                        )
 
                     else:
-                        # 3. 검색 결과가 없거나 오류 응답이 온 경우 구글이 준 진짜 사유 출력
                         print(
-                            f"⚠️ [{search_title}] 구글 검색 결과 및 사진 매칭 실패 (Google Status: {google_status})"
+                            f"⚠️ [{search_title}] 구글 신형 API 검색 결과 혹은 등록된 사진이 없음"
                         )
-                        if google_status != "OK" and google_status != "ZERO_RESULTS":
-                            # REQUEST_DENIED, INVALID_REQUEST, OVER_QUERY_LIMIT 등의 구체적 사유 출력
+                        if not places:
                             print(
-                                f"   ㄴ 에러 상세 메시지: {search_data.get('error_message', '설명 없음')}"
-                            )
-                        elif google_status == "ZERO_RESULTS" or not search_data.get(
-                            "results"
-                        ):
-                            print(
-                                f"   ㄴ 사유: 구글 맵에 '{search_title}'로 검색된 장소가 없습니다."
+                                f"- 사유: 구글 맵에 '{search_title}'로 검색된 장소가 없습니다."
                             )
                         else:
                             print(
-                                f"   ㄴ 사유: 장소는 검색되었으나 등록된 사진(photos) 데이터가 없습니다."
+                                f"- 사유: 장소는 검색되었으나 등록된 사진(photos) 데이터가 없습니다."
                             )
-                        print(f"   ㄴ 조치: 기본 이미지로 대체합니다.")
+                        print(f"- 조치: 기본 이미지로 대체합니다.")
 
                 except Exception as google_err:
-                    # 4. 통신 장애 혹은 JSON 파싱 에러 시 트레이스백을 확인할 수 있도록 에러 타입과 메시지 강화
                     print(
-                        f"🔥 구글 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
+                        f"🔥 구글 신형 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
                     )
-                    print(f"   ㄴ 에러 종류: {type(google_err).__name__}")
-                    print(f"   ㄴ 에러 내용: {str(google_err)}")
+                    print(f"- 에러 종류: {type(google_err).__name__}")
+                    print(f"- 에러 내용: {str(google_err)}")
 
                 final_recommendations.append(
                     TripRecommendResponse(
@@ -790,38 +785,71 @@ async def get_nearby_recommendations(
 
         final_recommendations = []
 
+        # 💡 구글 신형 API와 통신할 비동기 HTTP 클라이언트 세션 오픈
         async with httpx.AsyncClient() as http_client:
             for index, item in enumerate(ai_result.recommendations):
                 search_title = item.title.strip()
 
-                search_url = (
-                    "https://maps.googleapis.com/maps/api/place/textsearch/json"
-                )
+                # 기본 대체 이미지 설정
+                dynamic_image_url = f"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"
 
-                search_params = {
-                    "query": search_title,
-                    "key": PLACES_API_KEY,
-                    "language": "ko",
-                }
+                try:
+                    # 1. 🌟 구글 Places API 신형(New) 엔드포인트 설정
+                    search_url = "https://places.googleapis.com/v1/places:searchText"
 
-                search_response = await http_client.get(
-                    search_url, params=search_params
-                )
+                    # 2. 🌟 필수 데이터와 사진 리소스만 한정 요청 (Contact, Atmosphere 요금 완벽 방어)
+                    search_headers = {
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": PLACES_API_KEY,
+                        "X-Goog-FieldMask": "places.id,places.displayName,places.photos",
+                    }
 
-                search_data = search_response.json()
-                results = search_data.get("results", [])
+                    # 3. 신형 API JSON 바디 구성
+                    search_body = {"textQuery": search_title, "languageCode": "ko"}
 
-                dynamic_image_url = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"
-
-                if results and results[0].get("photos"):
-                    photo_reference = results[0]["photos"][0]["photo_reference"]
-
-                    dynamic_image_url = (
-                        f"https://maps.googleapis.com/maps/api/place/photo"
-                        f"?maxwidth=600"
-                        f"&photo_reference={photo_reference}"
-                        f"&key={PLACES_API_KEY}"
+                    # 신형 API 규격에 맞춰 POST 방식으로 호출
+                    search_response = await http_client.post(
+                        search_url, headers=search_headers, json=search_body
                     )
+
+                    # HTTP 상태 코드 검증
+                    if search_response.status_code != 200:
+                        print(
+                            f"❌ [{search_title}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
+                        )
+                        print(f"응답 본문: {search_response.text}")
+                        search_data = {}
+                    else:
+                        search_data = search_response.json()
+
+                    # 4. 🌟 신형 API 데이터 구조 추출 (places)
+                    places = search_data.get("places", [])
+
+                    if places and places[0].get("photos"):
+                        # 신형 포맷에 맞는 사진 리소스 주소('name' 필드) 바인딩
+                        photo_name = places[0]["photos"][0]["name"]
+
+                        # 5. 🌟 신형 미디어 API 전용 이미지 URL 스트링 조립 (기존 maxwidth -> maxHeightPx)
+                        dynamic_image_url = (
+                            f"https://places.googleapis.com/v1/{photo_name}/media"
+                            f"?maxHeightPx=500"
+                            f"&key={PLACES_API_KEY}"
+                        )
+                        print(
+                            f"✅ [{search_title}] 근교 도시 구글 신형 API 최적화 이미지 매칭 성공"
+                        )
+
+                    else:
+                        print(
+                            f"⚠️ [{search_title}] 구글 신형 API 근교 검색 결과 혹은 등록된 사진이 없음"
+                        )
+
+                except Exception as google_err:
+                    print(
+                        f"🔥 구글 신형 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
+                    )
+                    print(f"- 에러 종류: {type(google_err).__name__}")
+                    print(f"- 에러 내용: {str(google_err)}")
 
                 final_recommendations.append(
                     TripRecommendResponse(
@@ -859,6 +887,7 @@ async def ask_location_info(
                 detail="궁금한 여행지를 입력해주세요.",
             )
 
+        # 1. 기존 DB 캐싱 데이터가 있는지 선조회
         result = await db.execute(
             select(models.Ask_Location)
             .where(models.Ask_Location.user_id == current_user.id)
@@ -874,6 +903,7 @@ async def ask_location_info(
                 imageUrl=existing_record.image_url,
             )
 
+        # 2. 캐싱 데이터가 없다면 Open AI 호출 진행
         system_instruction = (
             "당신은 전 세계의 매력적인 여행지를 소개해주는 베테랑 여행 도슨트(가이드)입니다.\n"
             "유저가 묻는 도시에 대해 친절하고 설레는 어조로 답변해 주세요.\n"
@@ -898,29 +928,58 @@ async def ask_location_info(
         if not ai_content:
             raise HTTPException(status_code=500, detail="AI 데이터 파싱 실패")
 
+        # 기본 대체 이미지 설정
+        dynamic_image_url = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80"
+
+        # 3. 💡 구글 Places API 신형(New) 기반의 최적화 이미지 획득 프로세스 시작
         async with httpx.AsyncClient() as http_client:
-            search_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
-            search_params = {
-                "query": search_keyword,
-                "key": PLACES_API_KEY,
-                "language": "ko",
+            search_url = "https://places.googleapis.com/v1/places:searchText"
+
+            # 🌟 필수 리소스 필드만 요청하여 불필요한 번들 데이터(Contact, Atmosphere) 과금 차단
+            search_headers = {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": PLACES_API_KEY,
+                "X-Goog-FieldMask": "places.id,places.displayName,places.photos",
             }
 
-            search_response = await http_client.get(search_url, params=search_params)
-            search_data = search_response.json()
-            results = search_data.get("results", [])
+            search_body = {"textQuery": search_keyword, "languageCode": "ko"}
 
-            dynamic_image_url = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80"
+            # 신형 API 스펙에 맞춘 POST 방식 호출
+            search_response = await http_client.post(
+                search_url, headers=search_headers, json=search_body
+            )
 
-            if results and results[0].get("photos"):
-                photo_reference = results[0]["photos"][0]["photo_reference"]
+            if search_response.status_code != 200:
+                print(
+                    f"❌ [{search_keyword}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
+                )
+                print(f"응답 본문: {search_response.text}")
+                search_data = {}
+            else:
+                search_data = search_response.json()
+
+            # 구형 'results' 배열 분기 ➡️ 신형 'places' 리스트 맵 파싱으로 변경
+            places = search_data.get("places", [])
+
+            if places and places[0].get("photos"):
+                # 신형 고유 식별 명칭(name)을 추출
+                photo_name = places[0]["photos"][0]["name"]
+
+                # 신형 미디어 파이프라인 URL 렌더링 형식에 매핑
                 dynamic_image_url = (
-                    f"https://maps.googleapis.com/maps/api/place/photo"
-                    f"?maxwidth=800"
-                    f"&photo_reference={photo_reference}"
+                    f"https://places.googleapis.com/v1/{photo_name}/media"
+                    f"?maxHeightPx=800"
                     f"&key={PLACES_API_KEY}"
                 )
+                print(
+                    f"✅ [{search_keyword}] 도슨트 여행지 구글 신형 API 최적화 이미지 매칭 성공"
+                )
+            else:
+                print(
+                    f"⚠️ [{search_keyword}] 구글 신형 API 가이드 검색 결과 혹은 사진이 존재하지 않음"
+                )
 
+        # 4. 향후 재호출 시 요금 발생을 막기 위해 새 가이드 레코드 보관
         new_ask_record = models.Ask_Location(
             user_id=current_user.id,
             keyword=search_keyword,
