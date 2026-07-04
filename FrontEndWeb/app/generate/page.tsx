@@ -60,10 +60,10 @@ const TRIP_STYLE_TAGS = [
 ];
 const TENDENCY_TAGS = [
   "💸 가성비 중시",
-  "👑 럭셔리·호캉스",
+  "👑 럭셔리",
   "🍺 음주 가능",
   "🤫 숨겨진 맛집",
-  "🛌 깔끔한 숙소 필수",
+  "🗿 현지 로컬 식당"
 ];
 
 export default function GeneratePage() {
@@ -177,7 +177,7 @@ export default function GeneratePage() {
     if (!location.trim()) return alert("여행지를 입력해 주세요.");
     if (!mbti) return alert("MBTI를 선택해 주세요.");
     if (!tripStyle) return alert("여행 스타일을 선택해 주세요.");
-    if (!tendency) return alert("식당 및 숙소 성향을 선택해 주세요.");
+    if (!tendency) return alert("식당 성향을 선택해 주세요.");
     if (!companion) return alert("누구와 함께하는지 선택해 주세요.");
     if (!transportation) return alert("주요 이동 수단을 선택해 주세요.");
 
@@ -406,7 +406,7 @@ export default function GeneratePage() {
             <p
               className={`text-xs font-semibold mb-2 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
             >
-              식당 · 숙소 성향
+              식당 성향
             </p>
             <div className="flex flex-wrap gap-1.5">
               {TENDENCY_TAGS.map((tag) => {

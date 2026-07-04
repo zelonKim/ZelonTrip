@@ -28,7 +28,7 @@ class TripGenerateRequest(BaseModel):
     ]
 
     tripStyle: str = Field(..., min_length=1, description="여행 스타일")
-    tendency: str = Field(..., min_length=1, description="식당 및 숙소 성향")
+    tendency: str = Field(..., min_length=1, description="식당 성향")
     companion: Literal["혼자", "친구와", "연인과", "가족과", "아이와", "부모님과"]
     transportation: Literal["대중교통", "자차/렌트카", "도보", "자전거"]
     pace: int = Field(..., ge=1, le=10, description="일정 페이스 (1~10)")

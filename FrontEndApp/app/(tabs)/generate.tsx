@@ -72,10 +72,10 @@ const TRIP_STYLE_TAGS = [
 ];
 const TENDENCY_TAGS = [
   "💸 가성비 중시",
-  "👑 럭셔리·호캉스",
+  "👑 럭셔리",
   "🍺 음주 가능",
   "🤫 숨겨진 맛집",
-  "🛌 깔끔한 숙소 필수",
+  "🗿 현지 로컬 식당",
 ];
 
 Notifications.setNotificationHandler({
@@ -262,7 +262,7 @@ export default function GenerateScreen() {
             text: "확인하러 가기",
             onPress: () => {
               isNotificationSent.current = false;
-              
+
               router.push({
                 pathname: "/(tabs)/plan/[id]",
                 params: { id: res.id },
@@ -295,7 +295,7 @@ export default function GenerateScreen() {
       return;
     }
     if (!tendency) {
-      Alert.alert("안내", "식당 및 숙소 성향을 선택해 주세요.");
+      Alert.alert("안내", "식당 성향을 선택해 주세요.");
       return;
     }
     if (!companion) {
@@ -467,7 +467,7 @@ export default function GenerateScreen() {
           </View>
 
           <Text style={[styles.subLabel, theme.textSub, { marginTop: 14 }]}>
-            식당 · 숙소 성향
+            식당 성향
           </Text>
           <View style={styles.tagGridRow}>
             {TENDENCY_TAGS.map((tag) => {

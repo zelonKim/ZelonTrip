@@ -139,7 +139,7 @@ async def generate_trip(
         f"- 기간: {request.days}박 {request.days + 1}일\n"
         f"- MBTI: {request.mbti}\n"
         f"- 여행 스타일: {request.tripStyle}\n\n"
-        f"- 식당 및 숙소 성향: {request.tendency}\n\n"
+        f"- 식당 성향: {request.tendency}\n\n"
         f"- 특별 요청사항: {request.asking}\n\n"
         f"- 동반자: {request.companion}\n"
         f"- 이동 수단: {request.transportation}\n"
