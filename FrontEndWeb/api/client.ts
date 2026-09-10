@@ -1,8 +1,7 @@
 import axios from "axios";
 import SecureLS from "secure-ls";
 
-const ls =
-  typeof window !== "undefined" ? new SecureLS({ encodingType: "aes" }) : null;
+const secureLs = typeof window !== "undefined" ? new SecureLS({ encodingType: "aes" }) : null;
 
 export const client = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -10,7 +9,7 @@ export const client = axios.create({
 
 client.interceptors.request.use(
   (config) => {
-    const token = ls ? ls.get("userToken") : null;
+    const token = secureLs ? secureLs.get("userToken") : null;
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,7 +25,7 @@ client.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       if (typeof window !== "undefined") {
-        if (ls) ls.remove("userToken");
+        if (secureLs) secureLs.remove("userToken");
         window.location.href = "/login";
       }
     }

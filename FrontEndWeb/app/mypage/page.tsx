@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,19 +14,14 @@ import {
   Loader2,
   Moon,
 } from "lucide-react";
-import SecureLS from "secure-ls";
 import { client } from "@/api/client";
 import { useTheme } from "@/context/ThemeContext";
-
-const ls =
-  typeof window !== "undefined" ? new SecureLS({ encodingType: "aes" }) : null;
+import { removeSecureItem } from "@/utils/secureLs";
 
 export default function MyPagePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isPendingDeactivate, startTransition] = useTransition();
-
-  // 모달 제어 상태 관리
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputNickname, setInputNickname] = useState("");
   const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
@@ -40,7 +35,8 @@ export default function MyPagePage() {
     localStorage.setItem("zelontrip_theme", nextMode ? "dark" : "light");
   };
 
-  // 1. 피드백 전송 Mutation
+  //////////////////////////////////////////////////////////////////
+
   const feedbackMutation = useMutation({
     mutationFn: async (content: string) => {
       const response = await client.post("/v1/user/feedback", { content });
@@ -69,7 +65,8 @@ export default function MyPagePage() {
     feedbackMutation.mutate(trimmedFeedback);
   };
 
-  // 2. 유저 프로필 조회 Query
+  //////////////////////////////////////////////////////////////////
+
   const { data: userData, isPending: isUserPending } = useQuery({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
@@ -78,7 +75,6 @@ export default function MyPagePage() {
     },
   });
 
-  // 3. 여행 통계 조회 Query
   const { data: statsData, isPending: isStatsPending } = useQuery({
     queryKey: ["userTripStats"],
     queryFn: async () => {
@@ -87,14 +83,12 @@ export default function MyPagePage() {
     },
   });
 
+  //////////////////////////////////////////////////////////////////
+
   const handleLogout = () => {
     if (window.confirm("정말 로그아웃 하시겠습니까?")) {
       try {
-        if (ls) {
-          ls.remove("userToken");
-        } else {
-          localStorage.removeItem("userToken");
-        }
+        removeSecureItem("userToken");
         queryClient.clear();
         router.replace("/login");
       } catch (error) {
@@ -103,7 +97,6 @@ export default function MyPagePage() {
     }
   };
 
-  // 5. 회원 탈퇴 처리
   const handleDeactivate = () => {
     if (
       window.confirm(
@@ -113,11 +106,7 @@ export default function MyPagePage() {
       startTransition(async () => {
         try {
           await client.patch("/v1/auth/deactivate");
-          if (ls) {
-            ls.remove("userToken");
-          } else {
-            localStorage.removeItem("userToken");
-          }
+          removeSecureItem("userToken");
           queryClient.clear();
           alert("안내: 그동안 서비스를 이용해 주셔서 감사합니다.");
           router.replace("/login");
@@ -130,12 +119,13 @@ export default function MyPagePage() {
     }
   };
 
+  //////////////////////////////////////////////////////////////////
+
   const openNicknameModal = () => {
     setInputNickname(userData?.nickname || "");
     setIsModalVisible(true);
   };
 
-  // 6. 닉네임 수정 Mutation
   const nicknameMutation = useMutation({
     mutationFn: async (newNickname: string) => {
       const response = await client.patch("/v1/user/nickname", {
@@ -170,24 +160,22 @@ export default function MyPagePage() {
     nicknameMutation.mutate(trimmedNickname);
   };
 
+  //////////////////////////////////////////////////////////////////
+
   return (
     <div
       className={`min-w-screen min-h-screen w-full transition-colors duration-200 ${
         isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* 메인 레이아웃 컨테이너 */}
       <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
-        {/* 헤더 영역 */}
         <header
           className={`pb-4 mb-6 border-b ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}
         >
           <h1 className="text-2xl font-bold tracking-tight">마이페이지</h1>
         </header>
 
-        {/* 본문 콘텐츠 */}
         <main className="space-y-5">
-          {/* 👣 [1. 프로필 & 취향 배지 영역] */}
           <section
             className={`p-4 rounded-2xl border shadow-sm transition-colors ${
               isDarkMode
@@ -253,7 +241,6 @@ export default function MyPagePage() {
               className={`my-4 ${isDarkMode ? "border-gray-700" : "border-gray-100"}`}
             />
 
-            {/* AI 취향 페르소나 배지 라인 */}
             <div className="w-full">
               <div
                 className={`flex items-center space-x-1.5 mb-3 text-sm font-semibold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
@@ -294,7 +281,6 @@ export default function MyPagePage() {
             </div>
           </section>
 
-          {/* 👣 [2. 여행 발자국 영역] */}
           <section
             className={`p-4 rounded-2xl border shadow-sm flex items-start space-x-3 transition-colors ${
               isDarkMode
@@ -328,7 +314,6 @@ export default function MyPagePage() {
             </div>
           </section>
 
-          {/* ⚙️ [3. 앱 지원 메뉴] */}
           <section className="space-y-2">
             <h2
               className={`text-sm font-semibold pl-0.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
@@ -343,7 +328,6 @@ export default function MyPagePage() {
                   : "bg-white border-gray-200 divide-gray-100"
               }`}
             >
-              {/* 다크모드 설정 아이템 */}
               <div
                 className={`w-full flex items-center justify-between p-4 transition-colors ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
               >
@@ -354,7 +338,6 @@ export default function MyPagePage() {
                   <span className="text-[15px] font-medium">다크모드</span>
                 </div>
 
-                {/* 스위치 토글 버튼 */}
                 <button
                   type="button"
                   onClick={handleToggleDarkMode}
@@ -370,7 +353,6 @@ export default function MyPagePage() {
                 </button>
               </div>
 
-              {/* 공지사항 링크 */}
               <button
                 onClick={() => router.push("/notice")}
                 className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
@@ -388,7 +370,6 @@ export default function MyPagePage() {
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </button>
 
-              {/* 피드백 보내기 링크 */}
               <button
                 onClick={() => setIsFeedbackModalVisible(true)}
                 className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
@@ -408,7 +389,6 @@ export default function MyPagePage() {
             </div>
           </section>
 
-          {/* 🔒 [4. 계정 관리] */}
           <div className="flex items-center justify-center space-x-4 pt-2">
             <button
               onClick={handleLogout}
@@ -430,7 +410,6 @@ export default function MyPagePage() {
             </button>
           </div>
 
-          {/* 서비스 버전 표시 */}
           <p
             className={`text-xs text-center font-medium pt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}
           >
@@ -439,9 +418,6 @@ export default function MyPagePage() {
         </main>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 🔮 [모달 1] 닉네임 변경 다이얼로그 오버레이 */}
-      {/* ========================================================================= */}
       {isModalVisible && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div
@@ -503,9 +479,6 @@ export default function MyPagePage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 🔮 [모달 2] 피드백 보내기 다이얼로그 오버레이 */}
-      {/* ========================================================================= */}
       {isFeedbackModalVisible && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div

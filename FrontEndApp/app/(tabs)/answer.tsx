@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
-import { useAppTheme } from "../_layout";
+import { useAppTheme } from "@/utils/ThemeContext";
 import { LocationAnswerResponse } from "@/types/LocationAnswer";
 import { getLocationAnswer } from "@/api/location/getLocationAnswer";
 

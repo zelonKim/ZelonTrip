@@ -1,8 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import {
   Plane,
   Calendar,
@@ -14,165 +12,56 @@ import {
   Sparkles,
   Loader2,
 } from "lucide-react";
-import { client } from "@/api/client";
+import { useTheme } from "@/context/ThemeContext";
 import {
-  registerForWebPushNotificationsAsync,
-  messaging,
-} from "@/services/notifications";
-import { onMessage } from "firebase/messaging";
-import { useTheme } from "@/context/ThemeContext"; // 🎯 1. 전역 테마 훅 가져오기
-
-const MBTI_OPTIONS = [
-  "INFJ",
-  "INFP",
-  "ENFJ",
-  "ENFP",
-  "ISTJ",
-  "ISFJ",
-  "ESTJ",
-  "ESFJ",
-  "INTJ",
-  "INTP",
-  "ENTJ",
-  "ENTP",
-  "ISTP",
-  "ISFP",
-  "ESTP",
-  "ESFP",
-];
-const COMPANION_OPTIONS = [
-  "혼자",
-  "친구와",
-  "연인과",
-  "가족과",
-  "아이와",
-  "부모님과",
-];
-const TRANSPORT_OPTIONS = ["대중교통", "자차/렌트카", "도보", "자전거"];
-const TRIP_STYLE_TAGS = [
-  "🎯 명소 탐방",
-  "☕️ 힙한 카페 투어",
-  "🌿 힐링·자연",
-  "🏃 액티비티·체험",
-  "🛍️ 쇼핑 중심",
-  "📸 인스타 감성",
-  "🎨 전시·문화",
-];
-const TENDENCY_TAGS = [
-  "💸 가성비 중시",
-  "👑 럭셔리",
-  "🍺 음주 가능",
-  "🤫 숨겨진 맛집",
-  "🗿 현지 로컬 식당"
-];
+  COMPANION,
+  COMPANION_OPTIONS,
+  MBTI,
+  MBTI_OPTIONS,
+  TRANSPORT,
+  TRANSPORT_OPTIONS,
+} from "@/constants/options";
+import { TENDENCY_TAGS, TRIP_STYLE_TAGS } from "@/constants/tags";
+import { useWebPush } from "@/hooks/useWebPush";
+import { useTripNotification } from "@/hooks/useSendNotification";
+import { useGenerateTrip } from "@/hooks/useGenerateTrip";
 
 export default function GeneratePage() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { isDarkMode } = useTheme(); // 🎯 2. 다크모드 상태 구독
+  const { isDarkMode } = useTheme();
 
-  const [cachedPushToken, setCachedPushToken] = useState<string | null>(null);
-
-  // 입력 데이터 상태 관리
   const [location, setLocation] = useState("");
   const [days, setDays] = useState<number>(1);
-  const [mbti, setMbti] = useState("");
+  const [mbti, setMbti] = useState<MBTI | null>();
   const [tripStyle, setTripStyle] = useState("");
   const [tendency, setTendency] = useState("");
   const [asking, setAsking] = useState("");
-  const [companion, setCompanion] = useState("");
-  const [transportation, setTransportation] = useState("");
+  const [companion, setCompanion] = useState<COMPANION | null>();
+  const [transportation, setTransportation] = useState<TRANSPORT | null>();
   const [pace, setPace] = useState<number>(5);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // 최초 진입 시 웹 푸시 토큰 생성 및 포그라운드 리스너 부착
-  useEffect(() => {
-    const initWebPush = async () => {
-      const token = await registerForWebPushNotificationsAsync();
-      if (token) {
-        setCachedPushToken(token);
-      }
-    };
-    initWebPush();
-
-    if (messaging) {
-      const unsubscribe = onMessage(messaging, (payload) => {
-        console.log("포그라운드 알림 수신:", payload);
-        alert(
-          `🔔 [${payload.notification?.title}] ${payload.notification?.body}`,
-        );
-      });
-      return () => unsubscribe();
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
     }
-  }, []);
+  };
 
-  // 1. 푸시 알림 발송 Mutation
-  const { mutate: mutateNotification } = useMutation({
-    mutationFn: async ({ planId, loc }: { planId: string; loc: string }) => {
-      if (!cachedPushToken) throw new Error("준비된 웹 푸시 토큰이 없습니다.");
+  const { cachedPushToken } = useWebPush();
 
-      const response = await client.post("/v1/notification", {
-        pushToken: cachedPushToken,
-        deviceId: "WEB_BROWSER_SESSION",
-        contents: {
-          title: "생성 완료",
-          body: `${loc} 여행 일정이 생성되었습니다.`,
-          message: "AI가 생성한 여행 플랜을 보완할 수도 있어요.",
-        },
-        data: { planId },
-      });
-      return { planId, loc };
-    },
-    onSuccess: ({ planId, loc }) => {
-      try {
-        const existingData = localStorage.getItem("zelontrip_notifications");
-        const list = existingData ? JSON.parse(existingData) : [];
-        const newNotification = {
-          id: `noti_${Date.now()}`,
-          title: "생성 완료",
-          body: `${loc} 여행 플랜이 생성되었습니다`,
-          date: new Date().toISOString(),
-          planId: planId,
-        };
-        localStorage.setItem(
-          "zelontrip_notifications",
-          JSON.stringify([newNotification, ...list]),
-        );
-      } catch (e) {
-        console.error("로컬 스토리지 알림 저장 실패:", e);
-      }
+  const { mutate: NotificationMutation } = useTripNotification(cachedPushToken);
 
-      setTimeout(() => {
-        if (confirm(`🚀 생성된 여행 일정을 바로 확인하러 가시겠습니까?`)) {
-          router.push(`/plan/${planId}`);
-        }
-      }, 1000);
-    },
-    onError: (err) => {
-      console.error("푸시 알림 백엔드 요청 실패:", err);
+  /////////////////////////////////////////////////////////////////////////////
+
+  const { mutate: tripGenerateMutation, isPending } = useGenerateTrip({
+    onSuccess: (res) => {
+      NotificationMutation({ planId: res.id, location });
+      setLocation("");
     },
   });
 
-  // 2. 메인 AI 일정 생성 Mutation
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (requestData: any) => {
-      const response = await client.post("/v1/trip/generate", requestData);
-      return response.data;
-    },
-    onSuccess: (res: any) => {
-      queryClient.invalidateQueries({ queryKey: ["tripList"] });
-      queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
-      queryClient.invalidateQueries({ queryKey: ["userTripStats"] });
-      queryClient.invalidateQueries({ queryKey: ["tripRecommend"] });
-
-      mutateNotification({ planId: res.id, loc: location });
-    },
-    onError: () => {
-      alert("일정 생성 중 문제가 발생했습니다. 다시 시도해 주세요.");
-    },
-  });
-
-  const handleGenerate = (e: React.FormEvent) => {
+  const handleGenerate = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!location.trim()) return alert("여행지를 입력해 주세요.");
     if (!mbti) return alert("MBTI를 선택해 주세요.");
@@ -181,7 +70,7 @@ export default function GeneratePage() {
     if (!companion) return alert("누구와 함께하는지 선택해 주세요.");
     if (!transportation) return alert("주요 이동 수단을 선택해 주세요.");
 
-    mutate({
+    tripGenerateMutation({
       location,
       days,
       mbti,
@@ -194,13 +83,7 @@ export default function GeneratePage() {
     });
   };
 
-  const toggleTag = (tag: string) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter((t) => t !== tag));
-    } else {
-      setSelectedTags([...selectedTags, tag]);
-    }
-  };
+  ////////////////////////////////////////////////////////
 
   return (
     <div
@@ -212,7 +95,6 @@ export default function GeneratePage() {
         onSubmit={handleGenerate}
         className="max-w-4xl mx-auto px-4 pt-10 space-y-4"
       >
-        {/* 헤더 섹션 */}
         <header
           className={`mb-6 border-b pb-4 ${isDarkMode ? "border-gray-800" : "border-transparent"}`}
         >
@@ -224,7 +106,6 @@ export default function GeneratePage() {
           </p>
         </header>
 
-        {/* 1. 목적지 입력 */}
         <div
           className={`border rounded-2xl p-4 shadow-sm transition-colors ${
             isDarkMode
@@ -256,7 +137,6 @@ export default function GeneratePage() {
           />
         </div>
 
-        {/* 2. 여행 기간 선택 */}
         <div
           className={`border rounded-2xl p-4 shadow-sm transition-colors ${
             isDarkMode
@@ -304,7 +184,6 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* 3. MBTI 선택 */}
         <div
           className={`border rounded-2xl p-4 shadow-sm transition-colors ${
             isDarkMode
@@ -348,7 +227,6 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* 4. 여행 취향 선택 */}
         <div
           className={`border rounded-2xl p-4 shadow-sm space-y-3 transition-colors ${
             isDarkMode
@@ -463,7 +341,6 @@ export default function GeneratePage() {
           />
         </div>
 
-        {/* 5. 동반자 선택 */}
         <div
           className={`border rounded-2xl p-4 shadow-sm transition-colors ${
             isDarkMode
@@ -507,7 +384,6 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* 6. 이동 수단 선택 */}
         <div
           className={`border rounded-2xl p-4 shadow-sm transition-colors ${
             isDarkMode
@@ -551,7 +427,6 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* 7. 일정 페이스 선택 */}
         <div
           className={`border rounded-2xl p-4 shadow-sm transition-colors ${
             isDarkMode
@@ -592,7 +467,6 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* 제출 버튼 */}
         <button
           type="submit"
           disabled={isPending}
