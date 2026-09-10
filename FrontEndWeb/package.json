@@ -23,7 +23,6 @@
     "secure-ls": "^2.0.0"
   },
   "devDependencies": {
-    "@next/swc-darwin-arm64": "^16.3.4",
     "@tailwindcss/postcss": "^4",
     "@types/google.maps": "^3.65.1",
     "@types/node": "^20",
