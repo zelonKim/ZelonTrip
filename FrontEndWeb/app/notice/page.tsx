@@ -1,27 +1,16 @@
 "use client";
-
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Loader2, RotateCw, Megaphone } from "lucide-react";
-import { client } from "@/api/client";
-import { useTheme } from "@/context/ThemeContext"; // 🎯 1. 전역 테마 훅 가져오기
 
-interface Notice {
-  id: number;
-  title: string;
-  content: string;
-  created_at: string;
-}
-
-const fetchNotices = async (): Promise<Notice[]> => {
-  const response = await client.get("/v1/notice");
-  return response.data;
-};
+import { useTheme } from "@/context/ThemeContext";
+import { Notice } from "@/types/Notice";
+import { getNotices } from "@/api/notice/getNotices";
 
 export default function NoticePage() {
   const router = useRouter();
-  const { isDarkMode } = useTheme(); // 🎯 2. 다크모드 상태 구독
+  const { isDarkMode } = useTheme();
 
   const {
     data: notices,
@@ -32,15 +21,13 @@ export default function NoticePage() {
     isRefetching,
   } = useQuery<Notice[]>({
     queryKey: ["notices"],
-    queryFn: fetchNotices,
+    queryFn: getNotices,
   });
 
-  // 수동 새로고침 핸들러
   const handleRefresh = async () => {
     await refetch();
   };
 
-  // 1. 로딩 상태 UI
   if (isLoading) {
     return (
       <div
@@ -58,7 +45,6 @@ export default function NoticePage() {
     );
   }
 
-  // 2. 에러 상태 UI
   if (isError) {
     return (
       <div
@@ -80,13 +66,14 @@ export default function NoticePage() {
     );
   }
 
+  ////////////////////////////////////////////////////////////////////////////
+
   return (
     <div
       className={`min-h-screen w-full pb-12 transition-colors duration-200 ${
         isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* 상단 헤더 내비게이션 바 */}
       <header
         className={`flex items-center justify-between py-3 px-6 mb-5 border-b transition-colors ${
           isDarkMode
@@ -110,7 +97,6 @@ export default function NoticePage() {
           공지사항 📢
         </h1>
 
-        {/* 수동 동기화 새로고침 버튼 */}
         <button
           onClick={handleRefresh}
           disabled={isRefetching}
@@ -127,7 +113,6 @@ export default function NoticePage() {
         </button>
       </header>
 
-      {/* 본문 콘텐츠 영역 */}
       <div className="max-w-2xl mx-auto px-4">
         <main>
           {notices && notices.length > 0 ? (
@@ -142,7 +127,6 @@ export default function NoticePage() {
                         : "bg-white border-gray-200 border-b-gray-300 hover:border-gray-300"
                     }`}
                   >
-                    {/* 카드 상단: 작성 날짜 */}
                     <div className="flex justify-end mb-1">
                       <span
                         className={`text-xs font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
@@ -158,7 +142,6 @@ export default function NoticePage() {
                       </span>
                     </div>
 
-                    {/* 카드 중단: 공지 제목 */}
                     <h3
                       className={`text-base font-bold line-clamp-1 mb-1.5 ${
                         isDarkMode ? "text-gray-100" : "text-gray-900"
@@ -167,7 +150,6 @@ export default function NoticePage() {
                       {notice.title}
                     </h3>
 
-                    {/* 카드 하단: 본문 미리보기 서머리 */}
                     <p
                       className={`text-sm line-clamp-2 leading-relaxed ${
                         isDarkMode ? "text-gray-400" : "text-gray-500"
@@ -180,7 +162,6 @@ export default function NoticePage() {
               ))}
             </ul>
           ) : (
-            /* 텅 비어있는 공지사항 예외 상태 UI */
             <div className="flex flex-col items-center justify-center pt-24 text-gray-400 gap-3">
               <Megaphone
                 className={

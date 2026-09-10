@@ -15,15 +15,14 @@ import {
 } from "lucide-react";
 import { client } from "@/api/client";
 import GoogleMapSection from "./GoogleMapSection";
-import { useTheme } from "@/context/ThemeContext"; // 🎯 1. 전역 테마 훅 가져오기
-
-const dayColors = ["#2563EB", "#F59E0B", "#10B981", "#8B5CF6", "#EF4444"];
+import { useTheme } from "@/context/ThemeContext";
+import { dayColors } from "@/constants/daysColors";
 
 export default function GeneratedPlanPage() {
   const router = useRouter();
   const { id } = useParams();
   const queryClient = useQueryClient();
-  const { isDarkMode } = useTheme(); // 🎯 2. 다크모드 상태 구독
+  const { isDarkMode } = useTheme();
 
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -42,7 +41,6 @@ export default function GeneratedPlanPage() {
     enabled: !!id,
   });
 
-  // AI 일정 보완 Mutation
   const { mutate: regenerateTrip, isPending: isRegenerating } = useMutation({
     mutationFn: async ({ feedback }: { feedback: string }) => {
       const res = await client.post(`/v1/trip/${id}/regenerate`, { feedback });
@@ -60,7 +58,6 @@ export default function GeneratedPlanPage() {
     },
   });
 
-  // 일정 삭제 Mutation
   const { mutate: deleteTrip, isPending: deletePending } = useMutation({
     mutationFn: async () => {
       const response = await client.delete(`/v1/trip/${id}`);
@@ -91,7 +88,6 @@ export default function GeneratedPlanPage() {
     }
   };
 
-  // 웹 표준 공유기능
   const handleShare = async () => {
     if (!planData) return;
     const shareMessage = `✈️ [${planData.location}] 여행 일정을 공유합니다!\n\n📌 제목: ${planData.title}\n📝 개요: ${planData.overview}`;
@@ -120,7 +116,6 @@ export default function GeneratedPlanPage() {
     }
   };
 
-  // 구글 맵 길찾기 링크 핸들러
   const openGoogleMapsDirection = (
     startLat: number,
     startLng: number,
@@ -131,7 +126,6 @@ export default function GeneratedPlanPage() {
     window.open(googleMapsUrl, "_blank");
   };
 
-  
   if (isPending) {
     return (
       <div
@@ -176,13 +170,14 @@ export default function GeneratedPlanPage() {
       )
     : [];
 
+  ////////////////////////////////////////////////////////
+
   return (
     <div
       className={`min-h-screen pb-12 transition-colors duration-200 ${
         isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* 상단 네비게이션 바 */}
       <nav
         className={`sticky top-0 z-30 border-b h-14 flex items-center justify-between px-4 mx-auto transition-colors ${
           isDarkMode
@@ -208,7 +203,6 @@ export default function GeneratedPlanPage() {
       </nav>
 
       <div className="max-w-2xl mx-auto px-5 pt-5 flex flex-col gap-5">
-        {/* 1. 메인 헤더 카드 */}
         <div
           className={`border rounded-2xl p-5 shadow-sm transition-colors ${
             isDarkMode
@@ -241,7 +235,6 @@ export default function GeneratedPlanPage() {
           </p>
         </div>
 
-        {/* 2. 맞춤형 꿀팁 섹션 */}
         {planData.custom_tips && planData.custom_tips.length > 0 && (
           <div
             className={`border rounded-2xl p-5 shadow-sm transition-colors ${
@@ -275,7 +268,6 @@ export default function GeneratedPlanPage() {
           </div>
         )}
 
-        {/* 🗺️ 3. 한눈에 보는 방문 명소 섹션 (구글 지도 구역 컴포넌트는 오타 수정 및 프레임워크 유지) */}
         {allPlaces.length > 0 && (
           <div
             className={`border rounded-2xl p-4 shadow-sm transition-colors ${
@@ -296,7 +288,6 @@ export default function GeneratedPlanPage() {
           </div>
         )}
 
-        {/* 📅 4. 상세 일차별 동선 리스트 */}
         <div>
           <h2 className="text-base font-bold mb-3.5 pl-0.5">동선 가이드</h2>
           <div className="flex flex-col gap-5">
@@ -326,7 +317,6 @@ export default function GeneratedPlanPage() {
 
                   {dayItem.places?.map((place: any, pIdx: number) => (
                     <div key={pIdx} className="group">
-                      {/* 길찾기 연동 섹션 */}
                       {pIdx > 0 && (
                         <div className="flex items-center h-12 pl-1.5 relative -mt-1 mb-1">
                           <div
@@ -371,7 +361,6 @@ export default function GeneratedPlanPage() {
                         </div>
                       )}
 
-                      {/* 장소 정보 레이아웃 */}
                       <div className="flex gap-3.5 min-h-[80px]">
                         <div className="flex flex-col items-center flex-shrink-0 w-3">
                           <div
@@ -401,7 +390,6 @@ export default function GeneratedPlanPage() {
                             {place.description}
                           </p>
 
-                          {/* AI 추천 코멘트 */}
                           {place.proposed_reason && (
                             <div
                               className={`border rounded-xl p-3 mt-2.5 transition-colors ${
@@ -434,7 +422,6 @@ export default function GeneratedPlanPage() {
           </div>
         </div>
 
-        {/* 🛠️ 5. 하단 액션 버튼 그룹 */}
         <div className="flex flex-col gap-3 mt-2">
           {!showFeedbackForm ? (
             <>
@@ -460,7 +447,6 @@ export default function GeneratedPlanPage() {
               </button>
             </>
           ) : (
-            // AI 수정 요청 폼 활성화 구조
             <form
               onSubmit={handleFeedbackSubmit}
               className={`border rounded-2xl p-4 shadow-sm transition-colors ${

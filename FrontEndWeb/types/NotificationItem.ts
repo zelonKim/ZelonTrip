@@ -3,5 +3,5 @@ export interface NotificationItem {
   title: string;
   body: string;
   date: string;
-  planId?: number | string;
+  planId?: number | string | null;
 }

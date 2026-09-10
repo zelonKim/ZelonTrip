@@ -67,6 +67,8 @@ export default function PlansPage() {
 
   const plans = data?.trips || [];
 
+  ////////////////////////////////////////////////////////
+
   return (
     <div
       className={`min-h-screen pb-10 transition-colors duration-200 ${

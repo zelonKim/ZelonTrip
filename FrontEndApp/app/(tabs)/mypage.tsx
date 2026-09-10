@@ -22,7 +22,7 @@ import {
 } from "lucide-react-native";
 import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAppTheme } from "../_layout";
+import { useAppTheme } from "@/utils/ThemeContext";
 import { useSendFeedback } from "@/hooks/useSendFeedback";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useUserTripStats } from "@/hooks/useUserTripStats";

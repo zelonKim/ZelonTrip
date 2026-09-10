@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
-import { Alert } from "react-native";
+import { useRouter } from "next/router";
 import { deleteTrip } from "@/api/trip/deleteTrip";
 
 export const useDeleteTrip = () => {
@@ -11,11 +10,11 @@ export const useDeleteTrip = () => {
     mutationFn: deleteTrip,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tripList"] });
-      Alert.alert("삭제 완료", "여행 일정이 성공적으로 삭제되었습니다.");
+      alert("여행 일정이 성공적으로 삭제되었습니다.");
       router.replace("/(tabs)/plans");
     },
     onError: () => {
-      Alert.alert("삭제 실패", "삭제 중 오류가 발생했습니다.");
+      alert("삭제 중 오류가 발생했습니다.");
     },
   });
 };

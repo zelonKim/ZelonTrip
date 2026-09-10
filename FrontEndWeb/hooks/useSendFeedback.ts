@@ -2,8 +2,6 @@ import { sendFeedback } from "@/api/feedback/sendFeedback";
 import { ApiErrorResponse } from "@/types/ApiError";
 import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
-import { Alert } from "react-native";
-
 
 export const useSendFeedback = (options?: {
   onSuccess?: () => void;
@@ -13,14 +11,14 @@ export const useSendFeedback = (options?: {
     mutationFn: sendFeedback,
     onSuccess: () => {
       options?.onSuccess?.();
-      Alert.alert("✅ 접수 완료", "피드백이 성공적으로 접수되었습니다!");
+      alert("피드백이 성공적으로 접수되었습니다!");
     },
     onError: (error: AxiosError<ApiErrorResponse>) => {
       const errMsg =
         error.response?.data?.detail ||
         "피드백 전송에 실패했습니다. 다시 시도해 주세요.";
       options?.onError?.(errMsg);
-      Alert.alert("오류", errMsg);
+      alert(errMsg);
     },
   });
 };

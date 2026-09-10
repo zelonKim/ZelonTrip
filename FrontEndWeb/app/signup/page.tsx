@@ -31,7 +31,6 @@ export default function SignupPage() {
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 유효성 검사 로직 (기존과 동일)
     if (!email || !password || !passwordConfirm)
       return alert("모든 정보를 입력해주세요.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -43,6 +42,8 @@ export default function SignupPage() {
 
     mutate({ username: email, password, password_confirm: passwordConfirm });
   };
+
+  ////////////////////////////////////////////////////////
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-white p-6">

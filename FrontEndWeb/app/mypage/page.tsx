@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   User,
   Award,
@@ -10,22 +10,25 @@ import {
   Megaphone,
   MessageSquare,
   ChevronRight,
-  X,
   Loader2,
   Moon,
 } from "lucide-react";
-import { client } from "@/api/client";
 import { useTheme } from "@/context/ThemeContext";
 import { removeSecureItem } from "@/utils/secureLs";
+import { useSendFeedback } from "@/hooks/useSendFeedback";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserTripStats } from "@/hooks/useUserTripStats";
+import { useDeactivateUser } from "@/hooks/useDeactivateUser";
+import { useUpdateNickname } from "@/hooks/useUpdateNickname";
+import { NicknameModal } from "@/component/NicknameModal";
+import { FeedbackModal } from "@/component/FeedbackModal";
 
 export default function MyPagePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [isPendingDeactivate, startTransition] = useTransition();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputNickname, setInputNickname] = useState("");
   const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
 
   const { isDarkMode, toggleDarkMode } = useTheme();
 
@@ -37,51 +40,49 @@ export default function MyPagePage() {
 
   //////////////////////////////////////////////////////////////////
 
-  const feedbackMutation = useMutation({
-    mutationFn: async (content: string) => {
-      const response = await client.post("/v1/user/feedback", { content });
-      return response.data;
-    },
-    onSuccess: () => {
-      alert("✅ 접수 완료: 피드백이 성공적으로 접수되었습니다!");
-      setIsFeedbackModalVisible(false);
-      setFeedbackText("");
-    },
-    onError: (error: any) => {
-      const errMsg =
-        error.response?.data?.detail ||
-        "피드백 전송에 실패했습니다. 다시 시도해 주세요.";
-      alert(`오류: ${errMsg}`);
-    },
-  });
+  const openNicknameModal = () => {
+    setIsModalVisible(true);
+    setInputNickname(profileData?.nickname || "");
+  };
 
-  const handleSendFeedback = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedFeedback = feedbackText.trim();
-    if (!trimmedFeedback) {
-      alert("안내: 피드백 내용을 입력해 주세요.");
-      return;
-    }
-    feedbackMutation.mutate(trimmedFeedback);
+  const { mutate: saveNicknameMutation, isPending: isSaveNicknamePending } =
+    useUpdateNickname({
+      onSuccess: () => {
+        setIsModalVisible(false);
+        setInputNickname("");
+      },
+    });
+
+  const handleSaveNickname = (newNickname: string) => {
+    saveNicknameMutation(newNickname);
   };
 
   //////////////////////////////////////////////////////////////////
 
-  const { data: userData, isPending: isUserPending } = useQuery({
-    queryKey: ["currentUserProfile"],
-    queryFn: async () => {
-      const response = await client.get("/v1/auth/me");
-      return response.data;
-    },
-  });
+  const { mutate: feedbackMutation, isPending: isFeedbackPending } =
+    useSendFeedback({
+      onSuccess: () => {
+        setIsFeedbackModalVisible(false);
+      },
+    });
 
-  const { data: statsData, isPending: isStatsPending } = useQuery({
-    queryKey: ["userTripStats"],
-    queryFn: async () => {
-      const response = await client.get("/v1/user/stats");
-      return response.data;
-    },
-  });
+  const handleSendFeedback = (content: string) => {
+    feedbackMutation(content);
+  };
+
+  //////////////////////////////////////////////////////////////////
+
+  const { mutate: deactivateMutation, isPending: isDeactivatePending } =
+    useDeactivateUser();
+
+  const handleDeactivate = () => {
+    if (
+      window.confirm(
+        "회원 탈퇴\n\n정말 탈퇴하시겠습니까?\n탈퇴 시 서비스 이용이 제한됩니다.",
+      )
+    )
+      deactivateMutation();
+  };
 
   //////////////////////////////////////////////////////////////////
 
@@ -92,75 +93,19 @@ export default function MyPagePage() {
         queryClient.clear();
         router.replace("/login");
       } catch (error) {
-        alert("안내: 로그아웃 처리 중 오류가 발생했습니다.");
+        console.log(error);
+        alert("로그아웃 처리 중 오류가 발생했습니다.");
       }
     }
   };
 
-  const handleDeactivate = () => {
-    if (
-      window.confirm(
-        "회원 탈퇴\n\n정말 탈퇴하시겠습니까?\n탈퇴 시 서비스 이용이 제한됩니다.",
-      )
-    ) {
-      startTransition(async () => {
-        try {
-          await client.patch("/v1/auth/deactivate");
-          removeSecureItem("userToken");
-          queryClient.clear();
-          alert("안내: 그동안 서비스를 이용해 주셔서 감사합니다.");
-          router.replace("/login");
-        } catch (error: any) {
-          const errMsg =
-            error.response?.data?.detail || "서버 통신에 실패했습니다.";
-          alert(`탈퇴 실패: ${errMsg}`);
-        }
-      });
-    }
-  };
-
   //////////////////////////////////////////////////////////////////
 
-  const openNicknameModal = () => {
-    setInputNickname(userData?.nickname || "");
-    setIsModalVisible(true);
-  };
+  const { data: profileData, isPending: isProfilePending } = useUserProfile();
 
-  const nicknameMutation = useMutation({
-    mutationFn: async (newNickname: string) => {
-      const response = await client.patch("/v1/user/nickname", {
-        nickname: newNickname,
-      });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["currentUserProfile"], (oldData: any) => {
-        if (!oldData) return oldData;
-        return { ...oldData, nickname: data.nickname };
-      });
-      alert("성공: 닉네임이 성공적으로 설정되었습니다.");
-      setIsModalVisible(false);
-      setInputNickname("");
-      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
-    },
-    onError: (error: any) => {
-      const errMsg =
-        error.response?.data?.detail || "닉네임 저장에 실패했습니다.";
-      alert(`오류: ${errMsg}`);
-    },
-  });
+  const { data: statsData, isPending: isStatsPending } = useUserTripStats();
 
-  const handleSaveNickname = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedNickname = inputNickname.trim();
-    if (!trimmedNickname) {
-      alert("안내: 닉네임을 입력해 주세요.");
-      return;
-    }
-    nicknameMutation.mutate(trimmedNickname);
-  };
-
-  //////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////
 
   return (
     <div
@@ -195,14 +140,14 @@ export default function MyPagePage() {
               </div>
 
               <div className="flex-1 min-w-0">
-                {isUserPending ? (
+                {isProfilePending ? (
                   <Loader2 className="w-5 h-5 animate-spin text-blue-600 mt-1" />
                 ) : (
                   <div className="flex flex-col">
-                    {userData?.nickname ? (
+                    {profileData?.nickname ? (
                       <div className="flex items-center space-x-2.5">
                         <span className="text-lg font-bold truncate">
-                          {userData.nickname}
+                          {profileData.nickname}
                         </span>
                         <button
                           onClick={openNicknameModal}
@@ -230,7 +175,7 @@ export default function MyPagePage() {
                     <span
                       className={`text-sm font-medium truncate ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
                     >
-                      {userData?.username}
+                      {profileData?.username}
                     </span>
                   </div>
                 )}
@@ -403,10 +348,10 @@ export default function MyPagePage() {
             </span>
             <button
               onClick={handleDeactivate}
-              disabled={isPendingDeactivate}
+              disabled={isDeactivatePending}
               className={`text-sm font-medium transition-colors disabled:opacity-50 ${isDarkMode ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
             >
-              {isPendingDeactivate ? "탈퇴 중..." : "회원탈퇴"}
+              회원 탈퇴
             </button>
           </div>
 
@@ -418,143 +363,20 @@ export default function MyPagePage() {
         </main>
       </div>
 
-      {isModalVisible && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div
-            className={`w-full max-w-sm rounded-2xl p-6 shadow-xl transform transition-all ${
-              isDarkMode
-                ? "bg-gray-800 text-gray-100"
-                : "bg-white text-gray-900"
-            }`}
-          >
-            <h3 className="text-lg font-bold mb-1.5">닉네임 설정</h3>
-            <p
-              className={`text-xs mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
-            >
-              새로운 닉네임을 입력해 주세요.
-            </p>
+      <NicknameModal
+        isOpen={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        onNicknameSubmit={handleSaveNickname}
+        isPending={isSaveNicknamePending}
+        initialNickname={inputNickname}
+      />
 
-            <form onSubmit={handleSaveNickname} className="space-y-5">
-              <input
-                type="text"
-                value={inputNickname}
-                onChange={(e) => setInputNickname(e.target.value)}
-                maxLength={15}
-                autoFocus
-                placeholder="닉네임 입력"
-                className={`w-full h-11 px-3.5 border rounded-lg text-[15px] outline-none focus:ring-2 focus:ring-blue-500/40 transition-shadow ${
-                  isDarkMode
-                    ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
-                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400"
-                }`}
-              />
-
-              <div className="flex gap-3 w-full">
-                <button
-                  type="button"
-                  onClick={() => setIsModalVisible(false)}
-                  disabled={nicknameMutation.isPending}
-                  className={`flex-1 h-11 rounded-lg text-sm font-semibold transition-colors ${
-                    isDarkMode
-                      ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                  }`}
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={nicknameMutation.isPending}
-                  className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors disabled:opacity-50"
-                >
-                  {nicknameMutation.isPending ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    "저장"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isFeedbackModalVisible && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div
-            className={`w-full max-w-sm rounded-2xl p-6 shadow-xl transform transition-all ${
-              isDarkMode
-                ? "bg-gray-800 text-gray-100"
-                : "bg-white text-gray-900"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold">💬 피드백 보내기</h3>
-              <button
-                onClick={() => {
-                  setIsFeedbackModalVisible(false);
-                  setFeedbackText("");
-                }}
-                className={`transition-colors ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-400 hover:text-gray-600"}`}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p
-              className={`text-xs text-center leading-relaxed mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
-            >
-              ZelonTrip을 이용하면서 좋았던 점이나 <br /> 불편했던 점을 자유롭게
-              작성해주세요.
-            </p>
-
-            <form onSubmit={handleSendFeedback} className="space-y-4">
-              <textarea
-                value={feedbackText}
-                onChange={(e) => setFeedbackText(e.target.value)}
-                maxLength={300}
-                rows={4}
-                autoFocus
-                placeholder="여기에 내용을 입력해 주세요 (최대 300자)"
-                className={`w-full p-3.5 border rounded-lg text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500/40 transition-shadow ${
-                  isDarkMode
-                    ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
-                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400"
-                }`}
-              />
-
-              <div className="flex gap-3 w-full">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsFeedbackModalVisible(false);
-                    setFeedbackText("");
-                  }}
-                  disabled={feedbackMutation.isPending}
-                  className={`flex-1 h-11 rounded-lg text-sm font-semibold transition-colors ${
-                    isDarkMode
-                      ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-800"
-                  }`}
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={feedbackMutation.isPending}
-                  className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors disabled:opacity-50"
-                >
-                  {feedbackMutation.isPending ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    "보내기"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <FeedbackModal
+        isOpen={isFeedbackModalVisible}
+        onClose={() => setIsFeedbackModalVisible(false)}
+        onFeedbackSubmit={handleSendFeedback}
+        isPending={isFeedbackPending}
+      />
     </div>
   );
 }

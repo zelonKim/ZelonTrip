@@ -1,9 +1,7 @@
 export interface NicknameModalProps {
-  isVisible: boolean;
-  initialValue?: string;
-  isPending: boolean;
-  theme: any;
-  styles: any;
+  isOpen: boolean;
   onClose: () => void;
-  onSave: (nickname: string) => void;
+  onNicknameSubmit: (nickname: string) => void;
+  isPending?: boolean;
+  initialNickname?: string;
 }

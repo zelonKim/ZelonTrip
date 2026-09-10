@@ -24,7 +24,7 @@ interface ItineraryItem {
   places: Place[];
 }
 
-const dayColors = ["#2563EB", "#F59E0B", "#10B981", "#8B5CF6", "#EF4444"];
+
 
 function SingleDayDirections({
   places,
@@ -35,7 +35,7 @@ function SingleDayDirections({
 }) {
   const map = useMap();
   const routesLibrary = useMapsLibrary("routes");
-  const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
+  const [routePath, setRoutePath] = useState([]);
 
   useEffect(() => {
     if (!map || !places || places.length < 2 || !routesLibrary) return;
@@ -60,7 +60,7 @@ function SingleDayDirections({
         origin,
         destination,
         waypoints,
-        travelMode: "DRIVING" as google.maps.TravelMode,
+        travelMode: "DRIVING",
         optimizeWaypoints: true,
       },
       (result, status) => {

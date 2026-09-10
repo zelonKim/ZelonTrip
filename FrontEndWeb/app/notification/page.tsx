@@ -3,37 +3,32 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Trash2, MessageSquare } from "lucide-react";
-import { messaging } from "@/services/notifications"; // 💡 FCM 메시징 인스턴스 가져오기
+import { messaging } from "@/services/notifications";
 import { onMessage } from "firebase/messaging";
-import { useTheme } from "@/context/ThemeContext"; // 🎯 1. 전역 테마 훅 가져오기
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  body: string;
-  date: string;
-  planId: string | null;
-}
+import { useTheme } from "@/context/ThemeContext";
+import { NotificationItem } from "@/types/NotificationItem";
 
 export default function NotificationScreen() {
   const router = useRouter();
-  const { isDarkMode } = useTheme(); // 🎯 2. 다크모드 상태 구독
+  const { isDarkMode } = useTheme();
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
-  // 로컬 스토리지에서 알림 히스토리 로드
-  const loadNotifications = () => {
-    try {
-      const data = localStorage.getItem("zelontrip_notifications");
-      if (data) {
-        setNotifications(JSON.parse(data));
+  useEffect(() => {
+    const savedNoti = localStorage.getItem("zelontrip_notifications");
+    if (savedNoti) {
+      try {
+        const parsed = JSON.parse(savedNoti);
+        queueMicrotask(() => {
+          setNotifications(parsed);
+        });
+      } catch (e) {
+        console.error("Failed to parse notifications", e);
       }
-    } catch (error) {
-      console.error("알림 로드 실패:", error);
     }
-  };
+  }, []);
 
-  // 특정 알림 개별 삭제
-  const deleteNotification = (e: React.MouseEvent, id: string) => {
+  const deleteNotification = (e: React.MouseEvent, id: string | number) => {
     e.stopPropagation();
     const updatedList = notifications.filter((item) => item.id !== id);
     setNotifications(updatedList);
@@ -43,7 +38,6 @@ export default function NotificationScreen() {
     );
   };
 
-  // 전체 알림 삭제
   const clearAllNotifications = () => {
     if (window.confirm("모든 알림을 삭제하시겠습니까?")) {
       setNotifications([]);
@@ -52,12 +46,8 @@ export default function NotificationScreen() {
   };
 
   useEffect(() => {
-    loadNotifications();
-
     if (messaging) {
       const unsubscribe = onMessage(messaging, (payload) => {
-        console.log("알림함 화면에서 포그라운드 실시간 캐치:", payload);
-
         if (payload.notification) {
           const newNoti: NotificationItem = {
             id: payload.messageId || `noti_${Date.now()}`,
@@ -77,11 +67,13 @@ export default function NotificationScreen() {
           });
         }
       });
-
       return () => unsubscribe();
     }
   }, []);
 
+  ////////////////////////////////////////////////////////////////////
+
+  
   return (
     <div
       className={`min-h-screen pb-12 transition-colors duration-200 ${
@@ -89,7 +81,6 @@ export default function NotificationScreen() {
       }`}
     >
       <div className="mx-auto">
-        {/* 커스텀 상단 헤더 내비게이션 바 */}
         <header
           className={`flex justify-between items-center h-12 px-4 py-8 border-b transition-colors ${
             isDarkMode
@@ -123,7 +114,6 @@ export default function NotificationScreen() {
           )}
         </header>
 
-        {/* 알림 리스트 렌더링 영역 */}
         <main className="flex flex-col items-center justify-center px-4">
           {notifications.length > 0 ? (
             notifications.map((item) => {
@@ -204,7 +194,6 @@ export default function NotificationScreen() {
               );
             })
           ) : (
-            /* 알림이 없을 때의 Empty 컴포넌트 */
             <div
               className={`flex flex-col items-center justify-center min-h-[500px] ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}
             >
