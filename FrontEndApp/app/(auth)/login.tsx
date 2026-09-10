@@ -12,64 +12,29 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import { useMutation } from "@tanstack/react-query";
-import { client } from "@/api/client";
 import { useAppTheme, useAuth } from "../_layout";
+import { useLogin } from "@/hooks/useLogin";
 
-interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-const loginApi = async (credentials: LoginCredentials) => {
-  const formData = new URLSearchParams();
-  formData.append("username", credentials.email);
-  formData.append("password", credentials.password);
-
-  const res = await client.post("/v1/auth/login", formData.toString(), {
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-  });
-  return res.data;
-};
 
 export default function LoginScreen() {
-  const { isDarkMode } = useAppTheme();
-
   const router = useRouter();
+  const { isDarkMode } = useAppTheme();
   const { checkAuthStatus } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: loginApi,
-    onSuccess: async (data) => {
-      const { access_token } = data;
-      if (access_token) {
-        await SecureStore.setItemAsync("userToken", access_token);
-        await checkAuthStatus();
-        router.replace("/(tabs)");
-      } else {
-        Alert.alert("안내", "토큰을 받아오지 못했습니다.");
-      }
-    },
-    onError: (error: any) => {
-      const errorMsg =
-        error.response?.data?.detail || "로그인 중 에러가 발생했습니다.";
-      Alert.alert("안내", errorMsg);
-    },
-  });
+  const { mutate: loginMutation, isPending } = useLogin({ checkAuthStatus });
 
   const handleLogin = () => {
     if (!email || !password) {
       Alert.alert("안내", "이메일과 비밀번호를 모두 입력해주세요.");
       return;
     }
-    mutate({ email, password });
+    loginMutation({ email, password });
   };
+
+  /////////////////////////////////////////////////////////////////////
 
   return (
     <KeyboardAvoidingView
@@ -97,7 +62,6 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          {/* 올바른 스타일 배열 문법 적용 */}
           <Text
             style={[
               styles.label,
@@ -183,6 +147,8 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

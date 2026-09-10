@@ -13,18 +13,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
-import { client } from "@/api/client";
-
-interface SignUpData {
-  username: string;
-  password: string;
-  password_confirm: string;
-}
-
-const signupApi = async (signUpData: SignUpData) => {
-  const res = await client.post("/v1/auth/signup", signUpData);
-  return res.data;
-};
+import { signupApi } from "@/api/auth/signupApi";
+import { useSignup } from "@/hooks/useSignup";
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -32,37 +22,20 @@ export default function SignupScreen() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: signupApi,
-    onSuccess: () => {
-      Alert.alert(
-        "환영합니다 🤗",
-        "회원가입이 완료되었습니다. 로그인해주세요.",
-        [{ text: "확인", onPress: () => router.push("/(auth)/login") }],
-      );
-    },
-    onError: (error: any) => {
-      const errorMsg =
-        error.response?.data?.detail || "회원가입에 실패했습니다.";
-      Alert.alert("안내", errorMsg);
-    },
-  });
+  const { mutate: signupMutation, isPending } = useSignup();
 
   const handleSignup = () => {
-    // 1. 빈 값 검사
     if (!email || !password || !passwordConfirm) {
       Alert.alert("안내", "모든 정보를 입력해주세요.");
       return;
     }
 
-    // 💡 2. 이메일 형식 유효성 검사 (정규식)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert("안내", "올바른 이메일 형식으로 입력해주세요.");
       return;
     }
 
-    // 💡 3. 비밀번호 조합 검사 (영문, 숫자 포함 최소 8자 이상)
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!passwordRegex.test(password)) {
       Alert.alert(
@@ -72,18 +45,19 @@ export default function SignupScreen() {
       return;
     }
 
-    // 4. 비밀번호 일치 검사
     if (password !== passwordConfirm) {
       Alert.alert("안내", "비밀번호가 서로 일치하지 않습니다.");
       return;
     }
 
-    mutate({
+    signupMutation({
       username: email,
       password,
       password_confirm: passwordConfirm,
     });
   };
+
+  /////////////////////////////////////////////////////////////////////
 
   return (
     <KeyboardAvoidingView
@@ -171,6 +145,8 @@ export default function SignupScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },

@@ -10,7 +10,6 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -24,76 +23,26 @@ import {
   Sparkles,
 } from "lucide-react-native";
 import Slider from "@react-native-community/slider";
-import { client } from "@/api/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import * as Notifications from "expo-notifications";
-import { registerForPushNotificationsAsync } from "@/services/notifications";
-import { getDeviceId } from "@/services/helpers";
-import { useAppTheme } from "../_layout"; // 💡 루트 레이아웃에서 전역 다크모드 훅 가져오기
-
-// 옵션 데이터 상수 정의
-const MBTI_OPTIONS = [
-  "INFJ",
-  "INFP",
-  "ENFJ",
-  "ENFP",
-  "ISTJ",
-  "ISFJ",
-  "ESTJ",
-  "ESFJ",
-  "INTJ",
-  "INTP",
-  "ENTJ",
-  "ENTP",
-  "ISTP",
-  "ISFP",
-  "ESTP",
-  "ESFP",
-];
-const COMPANION_OPTIONS = [
-  "혼자",
-  "친구와",
-  "연인과",
-  "가족과",
-  "아이와",
-  "부모님과",
-];
-const TRANSPORT_OPTIONS = ["대중교통", "자차/렌트카", "도보", "자전거"];
-
-const TRIP_STYLE_TAGS = [
-  "🎯 명소 탐방",
-  "☕️ 힙한 카페 투어",
-  "🌿 힐링·자연",
-  "🏃 액티비티·체험",
-  "🛍️ 쇼핑 중심",
-  "📸 인스타 감성",
-  "🎨 전시·문화",
-];
-const TENDENCY_TAGS = [
-  "💸 가성비 중시",
-  "👑 럭셔리",
-  "🍺 음주 가능",
-  "🤫 숨겨진 맛집",
-  "🗿 현지 로컬 식당",
-];
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+import { useAppTheme } from "../_layout";
+import {
+  Companion,
+  COMPANION_OPTIONS,
+  MBTI,
+  MBTI_OPTIONS,
+  TRANSPORT_OPTIONS,
+  Transportation,
+} from "@/constants/options";
+import { TENDENCY_TAGS, TRIP_STYLE_TAGS } from "@/constants/tags";
+import { TripGenerateResponse } from "@/types/TripGenerate";
+import { useGenerateTrip } from "@/hooks/useGenerateTrip";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { requestSuccessNotification } from "@/api/trip/requestSuccessNotification";
 
 export default function GenerateScreen() {
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 구독
+  const { isDarkMode } = useAppTheme();
 
-  // 💡 유기적 다크모드 테마 컬러 매핑 오버라이딩 객체
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
@@ -132,105 +81,43 @@ export default function GenerateScreen() {
     },
   };
 
-  const [cachedPushToken, setCachedPushToken] = useState<string | null>(null);
-  const [cachedDeviceId, setCachedDeviceId] = useState<string | null>(null);
+  ////////////////////////////////////////////////////////////////
 
+  const { cachedPushToken, cachedDeviceId } = usePushNotifications();
   const isNotificationSent = useRef(false);
 
-  const notificationsListener = useRef<Notifications.EventSubscription | null>(
-    null,
-  );
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
-
-  useEffect(() => {
-    const prepareNotificationTokens = async () => {
-      try {
-        const token = await registerForPushNotificationsAsync();
-        const deviceId = await getDeviceId();
-        if (token) setCachedPushToken(token);
-        if (deviceId) setCachedDeviceId(deviceId);
-      } catch (error) {
-        console.log("초기 토큰 준비 실패 (알림 권한 미허용 등):", error);
-      }
-    };
-
-    prepareNotificationTokens();
-
-    notificationsListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
-        console.log("알림 수신:", notification);
-      });
-
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log("알림 클릭:", response);
-        const planId = response.notification.request.content.data?.planId;
-        if (planId) {
-          Linking.openURL(`zelontrip://plan/${planId}`);
-        }
-      });
-
-    return () => {
-      notificationsListener.current?.remove();
-      responseListener.current?.remove();
-    };
-  }, []);
-
-  const sendSuccessNotification = (planId: string) => {
+  const sendSuccessNotification = async (planId: number) => {
     if (!cachedPushToken || !cachedDeviceId) {
       console.log("미리 준비된 푸시 토큰이 없어 알림 발송을 건너뜁니다.");
       return;
     }
-
-    if (isNotificationSent.current) {
-      return;
-    }
+    if (isNotificationSent.current) return;
 
     isNotificationSent.current = true;
 
-    client
-      .post("/v1/notification", {
+    try {
+      await requestSuccessNotification({
         pushToken: cachedPushToken,
         deviceId: cachedDeviceId,
-        planId: planId ? String(planId) : null,
-        contents: {
-          title: "생성 완료 🤗",
-          body: `${location} 여행 플랜이 생성되었습니다`,
-          message: "AI가 생성한 여행 플랜을 보완할 수도 있어요.",
-        },
-      })
-      .catch((err) => {
-        console.log("=== 🚨 푸시 알림 요청 실패 상세 로그 ===");
-
-        isNotificationSent.current = false;
-
-        if (err.response) {
-          console.log("상태 코드 (Status):", err.response.status);
-          console.log(
-            "서버 에러 상세 (Data):",
-            JSON.stringify(err.response.data, null, 2),
-          );
-        } else if (err.request) {
-          console.log("요청 전송 성공했으나 응답 없음 (Request):", err.request);
-        } else {
-          console.log("에러 메시지 (Message):", err.message);
-        }
-        console.log("전체 에러 오브젝트:", err.config);
-        console.log("=======================================");
+        planId,
+        location,
       });
+    } catch (error) {
+      isNotificationSent.current = false;
+    }
   };
 
-  // 입력 데이터 상태 관리
+  ////////////////////////////////////////////////////////////////
+
   const [location, setLocation] = useState("");
   const [days, setDays] = useState<number>(1);
-  const [mbti, setMbti] = useState("");
+  const [mbti, setMbti] = useState<MBTI | "">("");
   const [tripStyle, setTripStyle] = useState("");
   const [tendency, setTendency] = useState("");
   const [asking, setAsking] = useState("");
-  const [companion, setCompanion] = useState("");
-  const [transportation, setTransportation] = useState("");
+  const [companion, setCompanion] = useState<Companion | "">("");
+  const [transportation, setTransportation] = useState<Transportation | "">("");
   const [pace, setPace] = useState<number>(5);
-
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const toggleTag = (tag: string) => {
@@ -241,44 +128,39 @@ export default function GenerateScreen() {
     }
   };
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (requestData: any) => {
-      const response = await client.post("/v1/trip/generate", requestData);
-      return response.data;
-    },
+  ///////////////////////////////////////////////////////////
+
+  const handleConfirmSuccess = (id: number) => {
+    isNotificationSent.current = false;
+    router.push({
+      pathname: "/(tabs)/plan/[id]",
+      params: { id },
+    });
+  };
+
+  const showSuccessAlert = (res: TripGenerateResponse) => {
+    Alert.alert(
+      "일정 생성 완료 🎉",
+      "AI가 여행 일정 생성을 완료하였습니다.",
+      [{ text: "확인하러 가기", onPress: () => handleConfirmSuccess(res.id) }],
+      { cancelable: false },
+    );
+  };
+
+  const showErrorAlert = () => {
+    Alert.alert(
+      "에러",
+      "일정 생성 중 문제가 발생했습니다. 다시 시도해 주세요.",
+    );
+  };
+
+  const { mutate: tripGenerateMutation, isPending } = useGenerateTrip({
     onSuccess: (res) => {
-      sendSuccessNotification(res.id);
-      queryClient.invalidateQueries({ queryKey: ["tripList"] });
-      queryClient.invalidateQueries({ queryKey: ["tripDetail", res.id] });
-      queryClient.invalidateQueries({ queryKey: ["userTripStats"] });
-      queryClient.invalidateQueries({ queryKey: ["tripRecommend"] });
       setLocation("");
-
-      Alert.alert(
-        "일정 생성 완료 🎉",
-        "AI가 여행 일정 생성을 완료하였습니다.",
-        [
-          {
-            text: "확인하러 가기",
-            onPress: () => {
-              isNotificationSent.current = false;
-
-              router.push({
-                pathname: "/(tabs)/plan/[id]",
-                params: { id: res.id },
-              });
-            },
-          },
-        ],
-        { cancelable: false },
-      );
+      showSuccessAlert(res);
+      sendSuccessNotification(res.id);
     },
-    onError: (error) => {
-      Alert.alert(
-        "에러",
-        "일정 생성 중 문제가 발생했습니다. 다시 시도해 주세요.",
-      );
-    },
+    onError: showErrorAlert,
   });
 
   const handleGenerate = () => {
@@ -307,7 +189,7 @@ export default function GenerateScreen() {
       return;
     }
 
-    mutate({
+    tripGenerateMutation({
       location,
       days,
       mbti,
@@ -319,6 +201,8 @@ export default function GenerateScreen() {
       pace,
     });
   };
+
+  ////////////////////////////////////////////////////////////
 
   return (
     <KeyboardAvoidingView
@@ -332,7 +216,6 @@ export default function GenerateScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 헤더 섹션 */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, theme.textMain]}>
             AI 맞춤 여행 생성 ✨
@@ -342,7 +225,6 @@ export default function GenerateScreen() {
           </Text>
         </View>
 
-        {/* 1. 목적지 입력 */}
         <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Plane size={20} color="#2563EB" />
@@ -357,7 +239,6 @@ export default function GenerateScreen() {
           />
         </View>
 
-        {/* 2. 여행 기간 선택 */}
         <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Calendar size={20} color="#2563EB" />
@@ -386,7 +267,6 @@ export default function GenerateScreen() {
           </View>
         </View>
 
-        {/* 3. MBTI 선택 */}
         <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <User size={20} color="#2563EB" />
@@ -424,7 +304,6 @@ export default function GenerateScreen() {
           </ScrollView>
         </View>
 
-        {/* 4. 여행 취향 선택 */}
         <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Compass size={20} color="#2563EB" />
@@ -518,7 +397,6 @@ export default function GenerateScreen() {
           />
         </View>
 
-        {/* 5. 동반자 선택 */}
         <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Users size={20} color="#2563EB" />
@@ -554,7 +432,6 @@ export default function GenerateScreen() {
           </View>
         </View>
 
-        {/* 6. 이동 수단 선택 */}
         <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRow}>
             <Car size={20} color="#2563EB" />
@@ -588,7 +465,6 @@ export default function GenerateScreen() {
           </View>
         </View>
 
-        {/* 7. 일정 페이스 선택 */}
         <View style={[styles.card, theme.cardBg]}>
           <View style={styles.labelRowContainer}>
             <View style={styles.labelRow}>
@@ -624,7 +500,6 @@ export default function GenerateScreen() {
           </View>
         </View>
 
-        {/* 제출 버튼 */}
         <TouchableOpacity
           style={[styles.submitBtn, isPending && styles.disabledBtn]}
           onPress={handleGenerate}
@@ -647,6 +522,8 @@ export default function GenerateScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+////////////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

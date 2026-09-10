@@ -7,7 +7,7 @@ function handleRegistrationError(errorMessage: string) {
   throw new Error(errorMessage);
 }
 
-export async function registerForPushNotificationsAsync() {
+export async function registerPushNotifications() {
   if (Platform.OS === "android") {
     Notifications.setNotificationChannelAsync("default", {
       name: "default",

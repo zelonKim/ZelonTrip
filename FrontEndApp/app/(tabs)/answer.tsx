@@ -1,7 +1,6 @@
 import React from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { client } from "@/api/client";
 import {
   Text,
   View,
@@ -14,20 +13,15 @@ import {
 } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
-import { useAppTheme } from "../_layout"; 
-
-interface AIAnswerResponse {
-  keyword: string;
-  content: string;
-  imageUrl: string;
-}
+import { useAppTheme } from "../_layout";
+import { LocationAnswerResponse } from "@/types/LocationAnswer";
+import { getLocationAnswer } from "@/api/location/getLocationAnswer";
 
 export default function AnswerScreen() {
   const router = useRouter();
   const { keyword } = useLocalSearchParams<{ keyword: string }>();
-  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 가져오기
+  const { isDarkMode } = useAppTheme();
 
-  // 💡 사용하시던 마이페이지/알림함 포맷과 100% 동일한 유기적 테마 객체 생성
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     loadingContainer: { backgroundColor: isDarkMode ? "#111827" : "#FFFFFF" },
@@ -48,7 +42,6 @@ export default function AnswerScreen() {
     indicatorColor: isDarkMode ? "#60A5FA" : "#2563EB",
   };
 
-  // 💡 마크다운 전용 내부 텍스트 스타일도 theme 객체(isDarkMode) 기준으로 스위칭
   const markdownStyles = StyleSheet.create({
     body: {
       fontSize: 16,
@@ -68,12 +61,11 @@ export default function AnswerScreen() {
     heading3: { color: isDarkMode ? "#E5E7EB" : "#374151", marginVertical: 6 },
   });
 
-  const { data: aiAnswer, isPending } = useQuery<AIAnswerResponse>({
+  ///////////////////////////////////////////////////////////////////////////////
+
+  const { data: locationAnswer, isPending } = useQuery<LocationAnswerResponse>({
     queryKey: ["aiAnswer", keyword],
-    queryFn: async () => {
-      const response = await client.post("/v1/location/ask", { keyword });
-      return response.data;
-    },
+    queryFn: () => getLocationAnswer(keyword),
     enabled: !!keyword,
   });
 
@@ -88,6 +80,8 @@ export default function AnswerScreen() {
     );
   }
 
+  ///////////////////////////////////////////////////////////////////////////////
+
   return (
     <View style={[styles.container, theme.container]}>
       <ScrollView
@@ -95,14 +89,13 @@ export default function AnswerScreen() {
         contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. 상단 대표 랜드마크 이미지 영역 */}
         <View style={styles.imageHeader}>
           <Image
-            source={{ uri: aiAnswer?.imageUrl }}
+            source={{ uri: locationAnswer?.imageUrl }}
             style={styles.headerImage}
             resizeMode="cover"
           />
-          {/* 다크모드 대응 딤 처리 오버레이 */}
+
           <View style={[styles.imageOverlay, theme.imageOverlay]} />
 
           <View style={titleContainerStyle(isDarkMode)}>
@@ -111,7 +104,6 @@ export default function AnswerScreen() {
           </View>
         </View>
 
-        {/* 2. 하단 텍스트 가이드북 내용 영역 */}
         <View style={styles.cardContainer}>
           <View style={[styles.card, theme.cardBg]}>
             <View style={[styles.cardHeader, theme.cardHeader]}>
@@ -121,8 +113,9 @@ export default function AnswerScreen() {
               </Text>
             </View>
 
-            {/* 마크다운 스타일 주입 */}
-            <Markdown style={markdownStyles}>{aiAnswer?.content}</Markdown>
+            <Markdown style={markdownStyles}>
+              {locationAnswer?.content}
+            </Markdown>
           </View>
 
           <TouchableOpacity
@@ -134,7 +127,6 @@ export default function AnswerScreen() {
         </View>
       </ScrollView>
 
-      {/* 고정 뒤로가기 버튼 */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <ArrowLeft size={24} color="#FFFFFF" />
       </TouchableOpacity>
@@ -142,14 +134,14 @@ export default function AnswerScreen() {
   );
 }
 
-// 다크모드 시 타이틀 텍스트 가시성 보정을 위한 유동 함수 스타일 (필요시)
+///////////////////////////////////////////////////////////////////////////////
+
 const titleContainerStyle = (isDarkMode: boolean) => ({
   position: "absolute" as const,
   bottom: 34,
   left: 20,
 });
 
-// 🎨 기존 구조 기반 스타일시트 (하드코딩 컬러값 제거 및 스타일 정제)
 const styles = StyleSheet.create({
   container: {
     flex: 1,

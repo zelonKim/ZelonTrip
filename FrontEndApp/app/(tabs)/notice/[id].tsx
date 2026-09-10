@@ -1,4 +1,3 @@
-import React from "react";
 import {
   StyleSheet,
   Text,
@@ -6,29 +5,20 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-  Platform,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Calendar, ChevronLeft } from "lucide-react-native";
-import { client } from "@/api/client";
-import { useAppTheme } from "../../_layout"; // 💡 루트 레이아웃 훅 가져오기
-
-interface NoticeDetail {
-  id: number;
-  title: string;
-  content: string;
-  is_important: boolean;
-  created_at: string;
-}
+import { Calendar, ChevronLeft } from "lucide-react-native";
+import { useAppTheme } from "../../_layout";
+import { getNoticeDetail } from "@/api/notice/getNoticeDetail";
+import { NoticeDetail } from "@/types/NoticeDetail";
 
 export default function NoticeDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 가져오기
+  const { isDarkMode } = useAppTheme();
 
-  // 💡 공지사항 상세 화면 맞춤 유기적 테마 객체
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#FFFFFF" },
     header: {
@@ -37,16 +27,15 @@ export default function NoticeDetailScreen() {
     },
     textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
     textSub: { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
-    textContent: { color: isDarkMode ? "#D1D5DB" : "#374151" }, // 본문 가독성 톤
+    textContent: { color: isDarkMode ? "#D1D5DB" : "#374151" },
     divider: { backgroundColor: isDarkMode ? "#374151" : "#E5E7EB" },
-
-    // 🚨 중요 공지 배지 테마 (다크모드 시 톤다운된 레드 매칭)
     badgeBg: { backgroundColor: isDarkMode ? "#2D1919" : "#FEE2E2" },
     badgeText: { color: isDarkMode ? "#FCA5A5" : "#EF4444" },
-
     iconColor: isDarkMode ? "#9CA3AF" : "#111827",
     indicatorColor: isDarkMode ? "#60A5FA" : "#3B82F6",
   };
+
+  ///////////////////////////////////////////////////////////////////////////////
 
   const {
     data: notice,
@@ -55,14 +44,10 @@ export default function NoticeDetailScreen() {
     error,
   } = useQuery<NoticeDetail>({
     queryKey: ["noticeDetail", id],
-    queryFn: async () => {
-      const response = await client.get(`/v1/notice/${id}`);
-      return response.data;
-    },
+    queryFn: () => getNoticeDetail(id!),
     enabled: !!id,
   });
 
-  // 로딩 화면
   if (isLoading) {
     return (
       <View style={[styles.centerContainer, theme.container]}>
@@ -74,7 +59,6 @@ export default function NoticeDetailScreen() {
     );
   }
 
-  // 에러 화면
   if (isError || !notice) {
     return (
       <View style={[styles.centerContainer, theme.container]}>
@@ -94,9 +78,10 @@ export default function NoticeDetailScreen() {
     );
   }
 
+  //////////////////////////////////////////////////////////////////////
+
   return (
     <View style={[styles.container, theme.container]}>
-      {/* 상단 헤더 */}
       <View
         style={[styles.header, theme.header, { paddingTop: insets.top + 10 }]}
       >
@@ -113,7 +98,6 @@ export default function NoticeDetailScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* 본문 스크롤 영역 */}
       <ScrollView
         contentContainerStyle={[
           styles.scrollContainer,
@@ -121,9 +105,7 @@ export default function NoticeDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 제목 섹션 */}
         <View style={styles.titleSection}>
-          {/* 💡 서버 데이터에 중요 공지 플래그가 참일 때 배지 노출 */}
           {notice.is_important && (
             <View style={[styles.importantBadge, theme.badgeBg]}>
               <Text style={[styles.importantBadgeText, theme.badgeText]}>
@@ -150,7 +132,6 @@ export default function NoticeDetailScreen() {
 
         <View style={[styles.divider, theme.divider]} />
 
-        {/* 본문 내용 섹션 */}
         <View style={styles.contentSection}>
           <Text style={[styles.content, theme.textContent]}>
             {notice.content}
@@ -160,6 +141,8 @@ export default function NoticeDetailScreen() {
     </View>
   );
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: {

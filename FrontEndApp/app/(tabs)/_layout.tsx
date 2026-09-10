@@ -1,18 +1,13 @@
-import React from "react";
 import { Tabs } from "expo-router";
-import { useColorScheme } from "@/components/useColorScheme";
 import { Home, CircleUser, CalendarSearch, Bot } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "../_layout";
 import { Platform } from "react-native";
 
 export default function TabLayout() {
-  const { isDarkMode } = useAppTheme();
-
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-
   const tabHeight = (Platform.OS === "ios" ? 40 : 60) + insets.bottom;
+  const { isDarkMode } = useAppTheme();
 
   return (
     <Tabs
@@ -48,7 +43,6 @@ export default function TabLayout() {
         name="generate"
         options={{
           title: "여행 생성",
-
           tabBarIcon: ({ focused }) => (
             <Bot
               size={30}
@@ -63,7 +57,6 @@ export default function TabLayout() {
         name="plans"
         options={{
           title: "여행 계획",
-
           tabBarIcon: ({ focused }) => (
             <CalendarSearch
               size={25}
@@ -78,7 +71,6 @@ export default function TabLayout() {
         name="mypage"
         options={{
           title: "마이페이지",
-
           tabBarIcon: ({ focused }) => (
             <CircleUser
               size={25}

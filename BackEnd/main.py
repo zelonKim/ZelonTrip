@@ -62,12 +62,10 @@ app = FastAPI(
 )
 
 
-# ---------------------------------------------------------------------------
-# CORS 설정: 프론트엔드(Expo 앱 등) 연결을 위함.
-# ---------------------------------------------------------------------------
+# 프론트엔드 연결을 위한 CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 로컬 개발 단계에서는 모두 허용
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,11 +76,10 @@ openai_key = os.getenv("OPENAI_API_KEY")
 
 if not openai_key:
     print(
-        "⚠️ 경고: OPENAI_API_KEY 환경변수가 설정되지 않았습니다! .env 파일을 확인하거나 터미널에 export 해주세요."
+        "경고: OPENAI_API_KEY 환경변수가 설정되지 않았습니다! .env 파일을 확인하거나 터미널에 export 해주세요."
     )
 
 client = AsyncOpenAI(api_key=openai_key)
-
 
 PLACES_API_KEY = os.getenv("PLACES_API_KEY")
 
@@ -106,11 +103,10 @@ def get_scalar_docs():
 ##########################################
 
 
+# AI 기반 여행 일정 생성 API
 @app.post("/api/v1/trip/generate")
 async def generate_trip(
-    request: TripGenerateRequest,
-    db: SessionDep,
-    current_user: CurrentUserDep,
+    request: TripGenerateRequest, db: SessionDep, current_user: CurrentUserDep
 ):
 
     if not client.api_key:
@@ -180,7 +176,6 @@ async def generate_trip(
         return {
             "id": trip_plan.id,
             "message": "AI 일정 생성 및 저장이 완료되었습니다!",
-            # "data": parsed_response.model_dump(),
             "data": parsed_response,
         }
 
@@ -192,18 +187,12 @@ async def generate_trip(
         )
 
 
-##########################################
+############################################################
 
 
-# ---------------------------------------------------------------------------
-# 모든 여행 일정 목록 조회 API
-# ---------------------------------------------------------------------------
+# 여행 일정 전체 조회 API
 @app.get("/api/v1/trip/list", response_model=TripListResponse)
-async def get_trip_list(
-    db: SessionDep,
-    currentUser: CurrentUserDep,
-):
-
+async def get_trip_list(db: SessionDep, currentUser: CurrentUserDep):
     try:
         query = (
             select(models.Trip_Plan)
@@ -219,15 +208,12 @@ async def get_trip_list(
         raise HTTPException(status_code=500, detail=f"목록 조회 중 에러 발생: {str(e)}")
 
 
-# ---------------------------------------------------------------------------
-# 특정 여행 일정 상세 조회 API
-# ---------------------------------------------------------------------------
+####################################################################
+
+
+# 여행 일정 상세 조회 API
 @app.get("/api/v1/trip/{trip_id}", response_model=TripDetailResponse)
-async def get_trip_detail(
-    trip_id: int,
-    db: SessionDep,
-    # currentUser: CurrentUserDep,
-):
+async def get_trip_detail(trip_id: int, db: SessionDep):
     try:
         trip_plan = await db.get(models.Trip_Plan, trip_id)
 
@@ -245,18 +231,15 @@ async def get_trip_detail(
         raise HTTPException(status_code=500, detail=f"상세 조회 중 에러 발생: {str(e)}")
 
 
-##########################################
+#####################################################################
 
 
-# ---------------------------------------------------------------------------
-# 여행 일정 타이틀 및 개요 부분 수정 API
-# ---------------------------------------------------------------------------
+# 여행 일정 부분 수정 API
 @app.patch("/api/v1/trip/{trip_id}", response_model=TripUpdateResponse)
 async def update_trip(
     trip_id: int,
     request: TripUpdateRequest,
     db: SessionDep,
-    currentUser: CurrentUserDep,
 ):
     try:
         trip_plan = await db.get(models.Trip_Plan, trip_id)
@@ -291,14 +274,12 @@ async def update_trip(
         raise HTTPException(status_code=500, detail=f"수정 중 에러 발생: {str(e)}")
 
 
-##########################################
+##########################################################################
 
 
-# ---------------------------------------------------------------------------
 # 여행 일정 삭제 API
-# ---------------------------------------------------------------------------
 @app.delete("/api/v1/trip/{trip_id}")
-async def delete_trip(trip_id: int, db: SessionDep, currentUser: CurrentUserDep):
+async def delete_trip(trip_id: int, db: SessionDep):
     try:
         trip_plan = await db.get(models.Trip_Plan, trip_id)
 
@@ -320,20 +301,12 @@ async def delete_trip(trip_id: int, db: SessionDep, currentUser: CurrentUserDep)
         raise HTTPException(status_code=500, detail=f"삭제 처리 중 에러 발생: {str(e)}")
 
 
-##########################################
+####################################################################################
 
 
-# ---------------------------------------------------------------------------
-#  AI 여행 일정 재생성 API
-# ---------------------------------------------------------------------------
+#  AI 기반 여행 일정 재생성 API
 @app.post("/api/v1/trip/{trip_id}/regenerate", response_model=TripRegenerateResponse)
-async def regenerate_trip(
-    trip_id: int,
-    request: TripRegenerateRequest,
-    db: SessionDep,
-    currentUser: CurrentUserDep,
-):
-
+async def regenerate_trip(trip_id: int, request: TripRegenerateRequest, db: SessionDep):
     if not client.api_key:
         raise HTTPException(
             status_code=500, detail="OpenAI API Key가 설정되지 않았습니다."
@@ -355,20 +328,20 @@ async def regenerate_trip(
             "- 모든 장소의 위도(latitude)와 경도(longitude)는 실제 위치 좌표를 정확하게 입력해주세요.\n"
             "- 반드시 지정된 응답 형식(TripGenerateResponse JSON Schema)을 엄격히 준수하여 답변해주세요.\n"
             "- 반드시 한국어로 답변해주세요."
-            "⚠️ [중요: 일정 수리 가이드]\n"
+            "[중요: 일정 수리 가이드]\n"
             "  1. 유저가 일차(기간) 변경을 요청하는 경우, 제공된 '목표 총 일수'를 절대적으로 준수하세요.\n"
             "  2. 제공된 목표 총 일수와 결과물인 itinerary 배열의 길이가 정확히 일치해야 합니다.\n"
         )
 
         user_prompt = (
-            f"🗺️ [기존 여행 정보]\n"
+            f"[기존 여행 정보]\n"
             f"- 목적지: {old_trip.location}\n"
             f"- 기존 타이틀: {old_trip.title}\n"
             f"- 기존 개요: {old_trip.overview}\n"
             f"- 기존 특별 꿀팁: {old_trip.custom_tips}\n"
             f"- 기존 일차별 동선:\n{old_trip.itinerary}\n\n"
             f"- 기존 일정의 총 일수: {current_days}일차 구성\n"
-            f"👉 [유저의 피드백]:{request.feedback}\n"
+            f"[유저의 피드백]:{request.feedback}\n"
             f"기존 여행 정보에 유저의 피드백을 완전히 반영한 여행 테마 타이틀, 전체 개요, 맞춤형 꿀팁, 그리고 일차별 상세 동선 리스트를 다시 생성해주세요."
             f"단, 유저의 피드백을 분석하여 최종 결과물은 반드시 유저가 요구한 정확한 일수로 맞춰서 생성하세요.(만약, 기존 {current_days}일에서 하루 추가면 총 {current_days + 1}일차까지 생성해야 합니다.)\n\n"
         )
@@ -416,16 +389,16 @@ async def regenerate_trip(
         )
 
 
-##########################################
+################################################################
 
 
+# 회원가입 API
 @app.post(
     "/api/v1/auth/signup",
     response_model=UserCreateResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def signup(request: UserCreateRequest, db: SessionDep):
-
     query = select(models.User).where(models.User.username == request.username)
     result = await db.execute(query)
     existing_user = result.scalar_one_or_none()
@@ -456,14 +429,12 @@ async def signup(request: UserCreateRequest, db: SessionDep):
         )
 
 
-#########################################
+#############################################################################
 
 
+# 로그인 API
 @app.post("/api/v1/auth/login", response_model=UserLoginResponse)
-async def login(
-    db: SessionDep,
-    form_data: OAuth2PasswordRequestForm = Depends(),
-):
+async def login(db: SessionDep, form_data: OAuth2PasswordRequestForm = Depends()):
     query = select(models.User).where(models.User.username == form_data.username)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -489,21 +460,20 @@ async def login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-##################################
+######################################################################
 
 
+# 내 정보 조회 API
 @app.get("/api/v1/auth/me", response_model=UserMeResponse)
 async def get_me(current_user: CurrentUserDep):
     return current_user
 
 
-##################################
+######################################################################
 
 
-@app.patch(
-    "/api/v1/auth/deactivate",
-    status_code=status.HTTP_200_OK,
-)
+# 계정 비활성화 API
+@app.patch("/api/v1/auth/deactivate", status_code=status.HTTP_200_OK)
 async def account_deactivate(db: SessionDep, current_user: CurrentUserDep):
     current_user.is_active = False
 
@@ -514,14 +484,12 @@ async def account_deactivate(db: SessionDep, current_user: CurrentUserDep):
     return {"message": "계정이 비활성화되었습니다.", "username": current_user.username}
 
 
-##################################
+######################################################################
 
 
-@app.post(
-    "/api/v1/auth/logout",
-    status_code=status.HTTP_200_OK,
-)
-async def logout(db: SessionDep, current_user: CurrentUserDep, token: AuthDep):
+# 로그아웃 API
+@app.post("/api/v1/auth/logout", status_code=status.HTTP_200_OK)
+async def logout(db: SessionDep, token: AuthDep):
 
     query = select(models.BlacklistedToken).where(
         models.BlacklistedToken.token == token
@@ -540,6 +508,7 @@ async def logout(db: SessionDep, current_user: CurrentUserDep, token: AuthDep):
 ##################################
 
 
+# 유저 닉네임 변경 API
 @app.patch("/api/v1/user/nickname", status_code=status.HTTP_200_OK)
 async def update_nickname(
     request: NicknameUpdateRequest,
@@ -568,9 +537,10 @@ async def update_nickname(
     }
 
 
-##################################
+######################################################################
 
 
+# 유저 여행 통계 조회 API
 @app.get("/api/v1/user/stats", response_model=UserStatsResponse)
 async def get_user_trip_stats(db: SessionDep, current_user: CurrentUserDep):
 
@@ -595,9 +565,10 @@ async def get_user_trip_stats(db: SessionDep, current_user: CurrentUserDep):
     return UserStatsResponse(total_location=total_location, total_days=total_days)
 
 
-#################################
+############################################################################
 
 
+# AI기반 맞춤 여행지 추천 API
 @app.get("/api/v1/trip/recommend/history", response_model=List[TripRecommendResponse])
 async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDep):
     try:
@@ -645,7 +616,7 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
 
         final_recommendations = []
 
-        # 💡 구글 신형 API와 통신할 비동기 HTTP 클라이언트 세션 오픈
+        # 구글 신형 API와 통신할 비동기 HTTP 클라이언트 세션 오픈
         async with httpx.AsyncClient() as http_client:
             for index, item in enumerate(ai_result.recommendations):
                 search_title = item.title.strip()
@@ -654,20 +625,19 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
                 dynamic_image_url = f"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"
 
                 try:
-                    # 1. 🌟 구글 Places API 신형(New) 엔드포인트 설정
+                    # 구글 Places API New 엔드포인트 설정
                     search_url = "https://places.googleapis.com/v1/places:searchText"
 
-                    # 2. 🌟 핵심: 요금 차단을 위해 필수 데이터와 사진만 마스킹 요청 (Contact, Atmosphere 차단)
+                    # 요금 차단을 위해 필수 데이터와 사진만 마스킹 요청 (Contact, Atmosphere 차단)
                     search_headers = {
                         "Content-Type": "application/json",
                         "X-Goog-Api-Key": PLACES_API_KEY,
                         "X-Goog-FieldMask": "places.id,places.displayName,places.photos",
                     }
 
-                    # 3. 신형 API JSON 바디 구성
+                    # 신형 API JSON 바디 구성
                     search_body = {"textQuery": search_title, "languageCode": "ko"}
 
-                    # 신형 API는 POST 요청으로 받아야 합니다.
                     search_response = await http_client.post(
                         search_url, headers=search_headers, json=search_body
                     )
@@ -675,33 +645,32 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
                     # HTTP 상태 코드 검증
                     if search_response.status_code != 200:
                         print(
-                            f"❌ [{search_title}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
+                            f" [{search_title}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
                         )
                         print(f"응답 본문: {search_response.text}")
                         search_data = {}
                     else:
                         search_data = search_response.json()
 
-                    # 4. 🌟 신형 API 응답 구조 매칭 (구형 'results' -> 신형 'places')
+                    # API 응답 구조 매칭
                     places = search_data.get("places", [])
 
                     if places and places[0].get("photos"):
-                        # 신형은 photo_reference 대신 'name' 필드에 리소스 고유 식별자가 담깁니다 (places/중간값/photos/값 형태)
                         photo_name = places[0]["photos"][0]["name"]
 
-                        # 5. 🌟 신형 미디어(Photo) 다운로드 URL 포맷 조립
+                        # 5. 미디어 다운로드 URL 포맷 조립
                         dynamic_image_url = (
                             f"https://places.googleapis.com/v1/{photo_name}/media"
                             f"?maxHeightPx=500"
                             f"&key={PLACES_API_KEY}"
                         )
                         print(
-                            f"✅ [{search_title}] 구글 신형 API 실사 이미지 최적화 매칭 성공"
+                            f"[{search_title}] 구글 신형 API 실사 이미지 최적화 매칭 성공"
                         )
 
                     else:
                         print(
-                            f"⚠️ [{search_title}] 구글 신형 API 검색 결과 혹은 등록된 사진이 없음"
+                            f"[{search_title}] 구글 신형 API 검색 결과 혹은 등록된 사진이 없음"
                         )
                         if not places:
                             print(
@@ -715,7 +684,7 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
 
                 except Exception as google_err:
                     print(
-                        f"🔥 구글 신형 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
+                        f"구글 신형 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
                     )
                     print(f"- 에러 종류: {type(google_err).__name__}")
                     print(f"- 에러 내용: {str(google_err)}")
@@ -731,7 +700,6 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
                         imageUrl=dynamic_image_url,
                     )
                 )
-
         return final_recommendations
 
     except Exception as e:
@@ -741,9 +709,10 @@ async def get_history_recommendations(db: SessionDep, currentUser: CurrentUserDe
         )
 
 
-#################################
+##################################################################
 
 
+# AI 기반 근처 여행지 추천 API
 @app.get("/api/v1/trip/recommend/nearby", response_model=List[TripRecommendResponse])
 async def get_nearby_recommendations(
     latitude: float = Query(37.5665, description="유저의 현재 위도"),
@@ -759,10 +728,10 @@ async def get_nearby_recommendations(
         )
 
         user_prompt = (
-            f"🎯 유저의 현재 위치: [위도:{latitude}, 경도:{longitude}]\n\n"
+            f"- 유저의 현재 위치: [위도:{latitude}, 경도:{longitude}]\n\n"
             f"이 위치를 기반으로 다음 조건에 맞는 새로운 추천 여행 도시/지역 5곳을 엄선해줘.\n"
             f"단, 유저의 현재 위치에서 대중교통이나 차로 1시간 내외로 갈 수 있는 '근교 도시/지역'들만 엄선해줘\n"
-            f"⚠️ 중요 포맷 가이드:\n"
+            f"[중요 포맷 가이드]:\n"
             f"title 필드에는 '수원', '과천', '가평', '부산' 처럼 딱 떨어지는 도시/지역 이름만 들어가야 합니다."
         )
 
@@ -785,7 +754,7 @@ async def get_nearby_recommendations(
 
         final_recommendations = []
 
-        # 💡 구글 신형 API와 통신할 비동기 HTTP 클라이언트 세션 오픈
+        # 구글 Places API와 통신할 비동기 HTTP 클라이언트 세션 오픈
         async with httpx.AsyncClient() as http_client:
             for index, item in enumerate(ai_result.recommendations):
                 search_title = item.title.strip()
@@ -794,20 +763,20 @@ async def get_nearby_recommendations(
                 dynamic_image_url = f"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80"
 
                 try:
-                    # 1. 🌟 구글 Places API 신형(New) 엔드포인트 설정
+                    # 구글 Places API New 엔드포인트 설정
                     search_url = "https://places.googleapis.com/v1/places:searchText"
 
-                    # 2. 🌟 필수 데이터와 사진 리소스만 한정 요청 (Contact, Atmosphere 요금 완벽 방어)
+                    # 필수 데이터와 사진 리소스만 한정 요청 (Contact, Atmosphere 요금 방어)
                     search_headers = {
                         "Content-Type": "application/json",
                         "X-Goog-Api-Key": PLACES_API_KEY,
                         "X-Goog-FieldMask": "places.id,places.displayName,places.photos",
                     }
 
-                    # 3. 신형 API JSON 바디 구성
+                    # API JSON 바디 구성
                     search_body = {"textQuery": search_title, "languageCode": "ko"}
 
-                    # 신형 API 규격에 맞춰 POST 방식으로 호출
+                    # API 규격에 맞춰 POST 방식으로 호출
                     search_response = await http_client.post(
                         search_url, headers=search_headers, json=search_body
                     )
@@ -815,38 +784,38 @@ async def get_nearby_recommendations(
                     # HTTP 상태 코드 검증
                     if search_response.status_code != 200:
                         print(
-                            f"❌ [{search_title}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
+                            f"[{search_title}] 구글 API HTTP 오류 발생: 상태 코드 {search_response.status_code}"
                         )
                         print(f"응답 본문: {search_response.text}")
                         search_data = {}
                     else:
                         search_data = search_response.json()
 
-                    # 4. 🌟 신형 API 데이터 구조 추출 (places)
+                    # 4. API 데이터 구조 추출
                     places = search_data.get("places", [])
 
                     if places and places[0].get("photos"):
-                        # 신형 포맷에 맞는 사진 리소스 주소('name' 필드) 바인딩
+                        # 포맷에 맞는 사진 리소스 주소 바인딩
                         photo_name = places[0]["photos"][0]["name"]
 
-                        # 5. 🌟 신형 미디어 API 전용 이미지 URL 스트링 조립 (기존 maxwidth -> maxHeightPx)
+                        # 미디어 API 전용 이미지 URL 스트링 조립
                         dynamic_image_url = (
                             f"https://places.googleapis.com/v1/{photo_name}/media"
                             f"?maxHeightPx=500"
                             f"&key={PLACES_API_KEY}"
                         )
                         print(
-                            f"✅ [{search_title}] 근교 도시 구글 신형 API 최적화 이미지 매칭 성공"
+                            f"[{search_title}] 근교 도시 구글 신형 API 최적화 이미지 매칭 성공"
                         )
 
                     else:
                         print(
-                            f"⚠️ [{search_title}] 구글 신형 API 근교 검색 결과 혹은 등록된 사진이 없음"
+                            f"[{search_title}] 구글 신형 API 근교 검색 결과 혹은 등록된 사진이 없음"
                         )
 
                 except Exception as google_err:
                     print(
-                        f"🔥 구글 신형 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
+                        f"구글 신형 플레이스 통신/처리 중 예외 장애 발생 ({search_title})"
                     )
                     print(f"- 에러 종류: {type(google_err).__name__}")
                     print(f"- 에러 내용: {str(google_err)}")
@@ -872,9 +841,10 @@ async def get_nearby_recommendations(
         )
 
 
-#################################
+##################################################################
 
 
+# 궁금한 여행지 질문 API
 @app.post("/api/v1/location/ask", response_model=LocationAskResponse)
 async def ask_location_info(
     request: LocationAskRequest, db: SessionDep, current_user: CurrentUserDep
@@ -887,7 +857,7 @@ async def ask_location_info(
                 detail="궁금한 여행지를 입력해주세요.",
             )
 
-        # 1. 기존 DB 캐싱 데이터가 있는지 선조회
+        # 기존 캐싱 데이터가 있는지 먼저 조회
         result = await db.execute(
             select(models.Ask_Location)
             .where(models.Ask_Location.user_id == current_user.id)
@@ -903,7 +873,7 @@ async def ask_location_info(
                 imageUrl=existing_record.image_url,
             )
 
-        # 2. 캐싱 데이터가 없다면 Open AI 호출 진행
+        # 캐싱 데이터가 없다면 Open AI 호출
         system_instruction = (
             "당신은 전 세계의 매력적인 여행지를 소개해주는 베테랑 여행 도슨트(가이드)입니다.\n"
             "유저가 묻는 도시에 대해 친절하고 설레는 어조로 답변해 주세요.\n"
@@ -931,11 +901,11 @@ async def ask_location_info(
         # 기본 대체 이미지 설정
         dynamic_image_url = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80"
 
-        # 3. 💡 구글 Places API 신형(New) 기반의 최적화 이미지 획득 프로세스 시작
+        # 구글 Places API New 기반의 최적화 이미지 획득 프로세스
         async with httpx.AsyncClient() as http_client:
             search_url = "https://places.googleapis.com/v1/places:searchText"
 
-            # 🌟 필수 리소스 필드만 요청하여 불필요한 번들 데이터(Contact, Atmosphere) 과금 차단
+            # 필수 리소스 필드만 요청하여 불필요한 번들 데이터 과금 차단
             search_headers = {
                 "Content-Type": "application/json",
                 "X-Goog-Api-Key": PLACES_API_KEY,
@@ -944,7 +914,7 @@ async def ask_location_info(
 
             search_body = {"textQuery": search_keyword, "languageCode": "ko"}
 
-            # 신형 API 스펙에 맞춘 POST 방식 호출
+            # API 스펙에 맞춘 POST 방식 호출
             search_response = await http_client.post(
                 search_url, headers=search_headers, json=search_body
             )
@@ -958,11 +928,10 @@ async def ask_location_info(
             else:
                 search_data = search_response.json()
 
-            # 구형 'results' 배열 분기 ➡️ 신형 'places' 리스트 맵 파싱으로 변경
             places = search_data.get("places", [])
 
             if places and places[0].get("photos"):
-                # 신형 고유 식별 명칭(name)을 추출
+                # 신형 고유 식별 명칭을 추출
                 photo_name = places[0]["photos"][0]["name"]
 
                 # 신형 미디어 파이프라인 URL 렌더링 형식에 매핑
@@ -972,14 +941,13 @@ async def ask_location_info(
                     f"&key={PLACES_API_KEY}"
                 )
                 print(
-                    f"✅ [{search_keyword}] 도슨트 여행지 구글 신형 API 최적화 이미지 매칭 성공"
+                    f"[{search_keyword}] 도슨트 여행지 구글 신형 API 최적화 이미지 매칭 성공"
                 )
             else:
                 print(
-                    f"⚠️ [{search_keyword}] 구글 신형 API 가이드 검색 결과 혹은 사진이 존재하지 않음"
+                    f"[{search_keyword}] 구글 신형 API 가이드 검색 결과 혹은 사진이 존재하지 않음"
                 )
 
-        # 4. 향후 재호출 시 요금 발생을 막기 위해 새 가이드 레코드 보관
         new_ask_record = models.Ask_Location(
             user_id=current_user.id,
             keyword=search_keyword,
@@ -1007,9 +975,10 @@ async def ask_location_info(
         )
 
 
-#################################
+##################################################################
 
 
+# 유저 피드백 API 
 @app.post(
     "/api/v1/user/feedback",
     response_model=FeedbackCreateResponse,
@@ -1049,9 +1018,10 @@ async def create_user_feedback(
         )
 
 
-###################################
+#######################################################
 
 
+# 공지사항 전체 조회 API
 @app.get(
     "/api/v1/notice",
     response_model=List[NoticeResponse],
@@ -1071,9 +1041,10 @@ async def get_notice_list(db: SessionDep):
         )
 
 
-################################
+####################################################
 
 
+# 공지사항 상세 조회 API
 @app.get("/api/v1/notice/{id}", response_model=NoticeResponse)
 async def get_notice_detail(id: int, db: SessionDep):
     try:
@@ -1096,7 +1067,8 @@ async def get_notice_detail(id: int, db: SessionDep):
         )
 
 
-################################
+#################################################################
+
 
 
 KEY_PATH = "google-service-key.json"
@@ -1107,24 +1079,28 @@ if not firebase_admin._apps:
     if firebase_env:
         try:
             cred_dict = json.loads(firebase_env)
-            # 💡 firebase_admin.credentials 대신 import한 credentials 바로 사용
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
-            print("🚀 [Railway] Firebase Admin SDK 초기화 성공!")
+            print("[Railway] Firebase Admin SDK 초기화 성공!")
         except Exception as e:
-            print(f"❌ [Railway] 환경 변수 기반 Firebase 초기화 실패: {str(e)}")
+            print(f"[Railway] 환경 변수 기반 Firebase 초기화 실패: {str(e)}")
 
     elif os.path.exists(KEY_PATH):
         try:
             cred = credentials.Certificate(KEY_PATH)
             firebase_admin.initialize_app(cred)
-            print("💻 [Local] 구글 키 파일 기반 Firebase 초기화 성공!")
+            print("[Local] 구글 키 파일 기반 Firebase 초기화 성공!")
         except Exception as e:
-            print(f"❌ [Local] 파일 기반 Firebase 초기화 실패: {str(e)}")
+            print(f"[Local] 파일 기반 Firebase 초기화 실패: {str(e)}")
     else:
-        print("⚠️ 경고: Firebase를 초기화할 수 있는 수단이 없습니다.")
+        print("경고: Firebase를 초기화할 수 있는 수단이 없습니다.")
 
 
+
+#################################################################\
+
+
+# 푸시 알림 발송 API
 @app.post("/api/v1/notification", status_code=status.HTTP_200_OK)
 async def send_generate_notification(request: NotificationRequest):
     if not firebase_admin._apps:
@@ -1157,7 +1133,6 @@ async def send_generate_notification(request: NotificationRequest):
             else "",
         }
 
-        # 🚀 [수정] firebase_admin.messaging.Message 대신 가볍게 기재
         message = messaging.Message(
             notification=messaging.Notification(
                 title=title,
@@ -1167,9 +1142,8 @@ async def send_generate_notification(request: NotificationRequest):
             token=token,
         )
 
-        # 🚀 [수정] 발송 메서드도 매핑 주소 단축
         response = messaging.send(message)
-        print(f"📱 푸시 알림 발송 성공! ID: {response} (planId: {plan_id_value})")
+        print(f" 푸시 알림 발송 성공! ID: {response} (planId: {plan_id_value})")
 
         return {
             "success": True,
@@ -1177,8 +1151,8 @@ async def send_generate_notification(request: NotificationRequest):
             "fcm_message_id": response,
         }
 
-    except FirebaseError as fe:  # 💡 [수정] 깔끔하게 단독 클래스로 캐치
-        print(f"❌ [FirebaseError] 푸시 전송 자체 실패: {str(fe)}")
+    except FirebaseError as fe: 
+        print(f"[FirebaseError] 푸시 전송 자체 실패: {str(fe)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Firebase 푸시 발송 실패: {str(fe)}",
@@ -1186,7 +1160,7 @@ async def send_generate_notification(request: NotificationRequest):
     except Exception as e:
         import traceback
 
-        print("❌ [InternalServerError] 런타임 코드 터짐:")
+        print("[InternalServerError] 런타임 코드 터짐:")
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -10,8 +10,8 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-
 assert DATABASE_URL is not None
+
 
 engine = create_async_engine(
     DATABASE_URL,

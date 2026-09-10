@@ -1,33 +1,24 @@
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Trash2, MessageSquare } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "./_layout"; // 💡 루트 레이아웃 훅 가져오기
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  body: string;
-  date: string;
-  planId: string | null;
-}
+import { useAppTheme } from "@/utils/ThemeContext";
+import { NotificationItem } from "@/types/NotificationItem";
+import { NotificationCard } from "@/components/NotificationCard";
 
 export default function NotificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 가져오기
+  const { isDarkMode } = useAppTheme();
 
-  // 💡 알림함 화면 맞춤 유기적 테마 객체
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     header: {
@@ -46,7 +37,10 @@ export default function NotificationScreen() {
     trashIconColor: isDarkMode ? "#6B7280" : "#9CA3AF",
   };
 
-  // 로컬 스토리지에서 알림 히스토리 로드
+  ///////////////////////////////////////////////////////////////
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
   const loadNotifications = async () => {
     try {
       const data = await AsyncStorage.getItem("zelontrip_notifications");
@@ -59,7 +53,15 @@ export default function NotificationScreen() {
     }
   };
 
-  // 특정 알림 개별 삭제
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const clearAllNotifications = async () => {
+    setNotifications([]);
+    await AsyncStorage.removeItem("zelontrip_notifications");
+  };
+
   const deleteNotification = async (id: string) => {
     const updatedList = notifications.filter((item) => item.id !== id);
     setNotifications(updatedList);
@@ -69,64 +71,35 @@ export default function NotificationScreen() {
     );
   };
 
-  // 전체 알림 삭제
-  const clearAllNotifications = async () => {
-    setNotifications([]);
-    await AsyncStorage.removeItem("zelontrip_notifications");
-  };
+  ////////////////////////////////////////////////////////////////////////
 
-  useEffect(() => {
-    loadNotifications();
+  const handlePressItem = useCallback((planId?: number | string) => {
+    if (planId) {
+      router.push({
+        pathname: "/(tabs)/plan/[id]",
+        params: { id: planId },
+      });
+    }
   }, []);
 
-  const renderItem = ({ item }: { item: NotificationItem }) => {
-    const formattedDate = new Date(item.date).toLocaleDateString("ko-KR", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const renderItem = useCallback(
+    ({ item }: { item: NotificationItem }) => (
+      <NotificationCard
+        item={item}
+        theme={theme}
+        styles={styles}
+        onPressItem={handlePressItem}
+      />
+    ),
+    [theme, styles, handlePressItem, deleteNotification],
+  );
 
-    return (
-      <TouchableOpacity
-        style={[styles.card, theme.cardBg]}
-        onPress={() => {
-          // 알림 클릭 시 등록된 플랜 상세 페이지로 연동 이동 (딥링크 역할 수행)
-          if (item.planId) {
-            router.push({
-              pathname: "/(tabs)/plan/[id]",
-              params: { id: item.planId },
-            });
-          }
-        }}
-      >
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconWrapper, theme.iconWrapperBg]}>
-            <MessageSquare size={16} color={theme.iconColor} />
-          </View>
-          <Text
-            style={[
-              styles.dateText,
-              { color: isDarkMode ? "#6B7280" : "#9CA3AF" },
-            ]}
-          >
-            {formattedDate}
-          </Text>
-          <TouchableOpacity onPress={() => deleteNotification(item.id)}>
-            <Trash2 size={16} color={theme.trashIconColor} />
-          </TouchableOpacity>
-        </View>
-        <Text style={[styles.cardTitle, theme.textMain]}>{item.title}</Text>
-        <Text style={[styles.cardBody, theme.textSub]}>{item.body}</Text>
-      </TouchableOpacity>
-    );
-  };
+  ////////////////////////////////////////////////////////////////////////
 
   return (
     <View
       style={[styles.container, theme.container, { paddingTop: insets.top }]}
     >
-      {/* 커스텀 상단 헤더 내비게이션 바 */}
       <View style={[styles.header, theme.header]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -144,10 +117,8 @@ export default function NotificationScreen() {
         )}
       </View>
 
-      {/* 알림 리스트 렌더링 영역 */}
       <FlatList
         data={notifications}
-        keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
@@ -167,6 +138,8 @@ export default function NotificationScreen() {
     </View>
   );
 }
+
+////////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

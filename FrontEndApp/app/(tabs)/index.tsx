@@ -1,18 +1,13 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   ScrollView,
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   ImageBackground,
-  Linking,
-  Modal,
   Pressable,
-  Platform,
 } from "react-native";
 import {
   Search,
@@ -22,35 +17,25 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Star,
-  X,
   RotateCw,
 } from "lucide-react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/api/client";
-import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import * as Notifications from "expo-notifications";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppTheme } from "../_layout";
+import { LocationAskModal } from "@/components/modals/LocationAskModal";
+import { saveNotificationToStorage } from "@/utils/saveNotificationToStorage";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { recommendTrip } from "@/api/trip/recommendTrip";
+import { openGoogleMap } from "@/utils/openGoogleMap";
+import { checkBadgeStatus } from "@/utils/checkBadgeStatus";
 
 export default function HomeScreen() {
-  const { isDarkMode } = useAppTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { isDarkMode } = useAppTheme();
 
-  const [displayLocation, setDisplayLocation] = useState("위치 탐색 중...");
-  const [isLocationLoading, setIsLocationLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [coords, setCoords] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
-
-  const [hasNewNotification, setHasNewNotification] = useState(false);
-
-  // 💡 유기적 테마 컬러 매핑 오브젝트
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
@@ -75,74 +60,32 @@ export default function HomeScreen() {
     badgeBorderColor: { borderColor: isDarkMode ? "#1F2937" : "#F3F4F6" },
   };
 
-  const saveNotificationToStorage = async (
-    notification: Notifications.Notification,
-  ) => {
-    console.log(
-      "🔥 알림 전체 수신 데이터 (content.data):",
-      JSON.stringify(notification.request.content.data, null, 2),
-    );
-    try {
-      const existingData = await AsyncStorage.getItem(
-        "zelontrip_notifications",
-      );
-      const currentNotifications = existingData ? JSON.parse(existingData) : [];
+  ///////////////////////////////////////////////////////////////////////////
 
-      const newNotificationItem = {
-        id: notification.request.identifier,
-        title: notification.request.content.title,
-        body: notification.request.content.body,
-        date: new Date().toISOString(),
-        planId: notification.request.content.data?.planId || null,
-      };
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchLocation, setSearchLocation] = useState("");
+  const [hasNewNotification, setHasNewNotification] = useState(false);
 
-      await AsyncStorage.setItem(
-        "zelontrip_notifications",
-        JSON.stringify([newNotificationItem, ...currentNotifications]),
-      );
-      setHasNewNotification(true);
-    } catch (error) {
-      console.log("알림 저장 실패:", error);
-    }
-  };
+  const { displayLocation, coords, isLocationLoading, getUserLocation } =
+    useUserLocation();
 
   useEffect(() => {
     getUserLocation();
 
     const notificationsListener = Notifications.addNotificationReceivedListener(
       (notification) => {
-        saveNotificationToStorage(notification);
+        saveNotificationToStorage(notification, setHasNewNotification);
       },
     );
 
-    const checkBadgeStatus = async () => {
-      const existingData = await AsyncStorage.getItem(
-        "zelontrip_notifications",
-      );
-      if (existingData) {
-        const list = JSON.parse(existingData);
-        if (list.length > 0) setHasNewNotification(true);
-      }
-    };
-    checkBadgeStatus();
+    checkBadgeStatus(setHasNewNotification);
 
     return () => notificationsListener.remove();
   }, []);
 
-  const handleAskAI = () => {
-    if (!searchQuery.trim()) {
-      alert("여행지를 입력해 주세요!");
-      return;
-    }
-    setModalVisible(false);
-    router.push({
-      pathname: "/answer",
-      params: { keyword: searchQuery.trim() },
-    });
-    setSearchQuery("");
-  };
+  //////////////////////////////////////////////////////////////////////////
 
-  const { data: userData, isPending } = useQuery({
+  const { data: userData, isPending: isUserPending } = useQuery({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
       const response = await client.get("/v1/auth/me");
@@ -158,6 +101,8 @@ export default function HomeScreen() {
     },
   });
 
+  ///////////////////////////////////////////////////////////////////////
+
   const hasHistory = statsData && statsData.total_location > 0;
 
   const {
@@ -167,82 +112,9 @@ export default function HomeScreen() {
     isRefetching: isRecommendRefetching,
   } = useQuery({
     queryKey: ["tripRecommend", hasHistory, coords],
-    queryFn: async () => {
-      if (hasHistory) {
-        const response = await client.get("/v1/trip/recommend/history");
-        return response.data;
-      } else {
-        const response = await client.get("/v1/trip/recommend/nearby", {
-          params: {
-            latitude: coords?.latitude ?? 37.5665,
-            longitude: coords?.longitude ?? 126.978,
-          },
-        });
-        return response.data;
-      }
-    },
+    queryFn: () => recommendTrip({ hasHistory, coords }),
     enabled: (!isLocationLoading && !!coords) || hasHistory,
   });
-
-  const getUserLocation = async () => {
-    setIsLocationLoading(true);
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setDisplayLocation("서울, 대한민국");
-        setCoords({ latitude: 37.5665, longitude: 126.978 });
-        setIsLocationLoading(false);
-        Alert.alert(
-          "위치 권한 거부",
-          "현재 위치 기준 서비스를 이용하시려면 설정에서 위치 권한을 허용해 주세요.",
-        );
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const { latitude, longitude } = location.coords;
-      setCoords({ latitude, longitude });
-
-      let reverseRegion = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-
-      if (reverseRegion && reverseRegion.length > 0) {
-        const address = reverseRegion[0];
-        const cityName = address.city || address.region || "";
-        const districtName = address.district || "";
-        setDisplayLocation(`${cityName} ${districtName}`.trim() || "대한민국");
-      } else {
-        setDisplayLocation("위치 알 수 없음");
-      }
-    } catch (error) {
-      setDisplayLocation("서울, 대한민국");
-      setCoords({ latitude: 37.5665, longitude: 126.978 });
-    } finally {
-      setIsLocationLoading(false);
-    }
-  };
-
-  const handleOpenGoogleMap = async () => {
-    if (!coords?.latitude || !coords?.longitude) {
-      Alert.alert(
-        "안내",
-        "현재 위치 정보를 가져오는 중입니다. 잠시 후 다시 시도해 주세요.",
-      );
-      return;
-    }
-    const { latitude, longitude } = coords;
-    const googleMapUrl = `https://www.google.com/maps/@${latitude},${longitude},15z`;
-    try {
-      await Linking.openURL(googleMapUrl);
-    } catch (error) {
-      Alert.alert("에러", "구글 맵을 여는 중 문제가 발생했습니다.");
-    }
-  };
 
   const handleRefreshRecommend = async () => {
     await queryClient.resetQueries({
@@ -251,12 +123,31 @@ export default function HomeScreen() {
     await refetchRecommend();
   };
 
+  /////////////////////////////////////////////////////////////////////////
+
+  const handleAskLocation = () => {
+    const keyword = searchLocation.trim();
+    if (!keyword) {
+      alert("여행지를 입력해 주세요!");
+      return;
+    }
+    setModalVisible(false);
+    router.push({
+      pathname: "/answer",
+      params: { keyword },
+    });
+    setSearchLocation("");
+  };
+
+  const handleOpenGoogleMap = () => openGoogleMap(coords);
+
+  /////////////////////////////////////////////////////////////////////
+
   return (
     <ScrollView
       style={[styles.container, theme.container]}
       showsVerticalScrollIndicator={false}
     >
-      {/* 1. 상단 헤더 섹션 */}
       <View style={styles.topBar}>
         <View>
           <Text style={styles.locationLabel}>현재 위치</Text>
@@ -294,9 +185,8 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 2. 메인 웰컴 카피 */}
       <View style={styles.welcomeSection}>
-        {isPending ? (
+        {isUserPending ? (
           <ActivityIndicator
             size="small"
             color="#2563EB"
@@ -315,7 +205,6 @@ export default function HomeScreen() {
       </View>
 
       <View style={{ flex: 1 }}>
-        {/* 3. AI 스마트 검색 바 */}
         <View style={styles.searchContainer}>
           <Pressable
             style={[styles.searchBar, theme.searchBarBg]}
@@ -334,59 +223,16 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* 팝업 모달 UI */}
-        <Modal
-          animationType="fade"
-          transparent={true}
+        <LocationAskModal
           visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={() => setModalVisible(false)}
-          >
-            <KeyboardAvoidingView
-              behavior="padding"
-              keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 50}
-              style={styles.keyboardAvoidingWrapper}
-            >
-              <View
-                style={[styles.modalContent, theme.modalContentBg]}
-                onStartShouldSetResponder={() => true}
-              >
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, theme.textMain]}>
-                    🤖 여행지 맞춤 정보{" "}
-                  </Text>
-                  <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <X size={22} color={isDarkMode ? "#9CA3AF" : "#4B5563"} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={[styles.modalDescription, theme.textSub]}>
-                  AI에게 궁금한 여행지를 물어보면 맞춤 여행 정보를 답변해줘요.
-                </Text>
-                <TextInput
-                  style={[styles.modalInput, theme.modalInputBg]}
-                  placeholder="예: 도쿄, 뉴욕, 파리, 런던 등"
-                  placeholderTextColor="#9CA3AF"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus={true}
-                  onSubmitEditing={handleAskAI}
-                />
-                <TouchableOpacity
-                  style={styles.askButton}
-                  onPress={handleAskAI}
-                >
-                  <Text style={styles.askButtonText}>물어보기</Text>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          </Pressable>
-        </Modal>
+          onClose={() => setModalVisible(false)}
+          onAsk={handleAskLocation}
+          isDarkMode={isDarkMode}
+          theme={theme}
+          styles={styles}
+        />
       </View>
 
-      {/* 4. AI 큐레이션 섹션 */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View style={styles.row}>
@@ -489,7 +335,6 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* 5. 실시간 가이드 바로가기 배너 */}
       <TouchableOpacity style={styles.banner} onPress={handleOpenGoogleMap}>
         <View>
           <Text style={styles.bannerSubtitle}>혹시, 여행 중이신가요?</Text>
@@ -503,6 +348,8 @@ export default function HomeScreen() {
     </ScrollView>
   );
 }
+
+///////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

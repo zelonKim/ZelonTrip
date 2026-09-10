@@ -10,12 +10,11 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Share,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   MapPin,
   Compass,
@@ -26,64 +25,24 @@ import {
   MessageSquare,
   Navigation,
 } from "lucide-react-native";
-import { client } from "@/api/client";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import { useAppTheme } from "../../_layout"; // 💡 루트 레이아웃 훅 가져오기
-
-const fetchTripDetail = async (tripId: string) => {
-  const res = await client.get(`/v1/trip/${tripId}`);
-  return res.data;
-};
-
-const regenerateTripApi = async ({
-  tripId,
-  feedback,
-}: {
-  tripId: string;
-  feedback: string;
-}) => {
-  const res = await client.post(`/v1/trip/${tripId}/regenerate`, {
-    feedback,
-  });
-  return res.data;
-};
-
-const dayColors = ["#2563EB", "#F59E0B", "#10B981", "#8B5CF6", "#EF4444"];
-
-const openGoogleMapsDirection = async (
-  startLat: number | null,
-  startLng: number | null,
-  destLat: number,
-  destLng: number,
-) => {
-  const origin = startLat && startLng ? `${startLat},${startLng}` : "";
-  const destination = `${destLat},${destLng}`;
-
-  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=transit`;
-
-  try {
-    const isSupported = await Linking.canOpenURL(googleMapsUrl);
-    if (isSupported) {
-      await Linking.openURL(googleMapsUrl);
-    } else {
-      Alert.alert("안내", "구글 맵 링크를 열 수 없습니다.");
-    }
-  } catch (error) {
-    Alert.alert("안내", "지도 앱이나 브라우저를 열 수 없습니다.");
-  }
-};
+import { useAppTheme } from "../../_layout";
+import { getTripDetail } from "@/api/trip/getTripDetail";
+import { dayColors } from "@/constants/daysColors";
+import { openGoogleMapsDirection } from "@/utils/openGoogleMapsDirection";
+import { useDeleteTrip } from "@/hooks/useDeleteTrip";
+import { useRegenerateTrip } from "@/hooks/useRegenerateTrip";
 
 export default function GeneratedPlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
+
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태 가져오기
+  const { isDarkMode } = useAppTheme();
 
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedback, setFeedback] = useState("");
 
-  // 💡 유기적 테마 객체 구성
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     navBar: {
@@ -96,8 +55,6 @@ export default function GeneratedPlanScreen() {
       backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
       borderColor: isDarkMode ? "#374151" : "#E5E7EB",
     },
-
-    // 🍯 여행 꿀팁 섹션 (다크모드 시 눈 안아픈 무드등 느낌의 호박색 반영)
     tipsBg: {
       backgroundColor: isDarkMode ? "#252013" : "#FFFBEB",
       borderColor: isDarkMode ? "#45381D" : "#FEF3C7",
@@ -114,39 +71,63 @@ export default function GeneratedPlanScreen() {
     indicatorColor: isDarkMode ? "#60A5FA" : "#2563EB",
   };
 
+  ///////////////////////////////////////////////////////////////////
+
   const {
     data: planData,
-    isPending,
-    isError,
+    isPending: isPlanPending,
+    isError: isPlanError,
     error,
   } = useQuery({
     queryKey: ["tripDetail", id],
-    queryFn: () => fetchTripDetail(id!),
+    queryFn: () => getTripDetail(id!),
     enabled: !!id,
   });
 
-  const { mutate, isPending: isRegenerating } = useMutation({
-    mutationFn: regenerateTripApi,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tripDetail", id] });
-      queryClient.invalidateQueries({ queryKey: ["tripList"] });
+  if (isPlanPending) {
+    return (
+      <View style={[styles.container, styles.center, theme.container]}>
+        <ActivityIndicator size="large" color={theme.indicatorColor} />
+        <Text style={[styles.loadingText, theme.textSub]}>
+          상세 일정을 불러오는 중...
+        </Text>
+      </View>
+    );
+  }
 
-      setFeedback("");
-      setShowFeedbackForm(false);
+  if (isPlanError || !planData) {
+    return (
+      <View style={[styles.container, styles.center, theme.container]}>
+        <Text style={styles.errorText}>여행 일정을 불러올 수 없습니다. 😢</Text>
+        <Text style={[styles.errorSubText, theme.textSub]}>
+          {error?.message || "존재하지 않는 일정입니다."}
+        </Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Text style={styles.backBtnText}>이전 화면으로 돌아가기</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-      Alert.alert("보완 완료 ✨", "AI가 일정을 보완하였습니다! ");
-      router.push({
-        pathname: "/(tabs)/plan/[id]",
-        params: { id },
-      });
-    },
-    onError: (error: any) => {
-      Alert.alert(
-        "에러",
-        error?.response?.data?.detail || "일정 보완 중 오류가 발생했습니다.",
-      );
-    },
-  });
+  ///////////////////////////////////////////////////////////////////
+
+  const { mutate: regenerateMutation, isPending: isRegenerating } =
+    useRegenerateTrip({
+      onSuccessCallback: () => {
+        setFeedback("");
+        setShowFeedbackForm(false);
+      },
+    });
+
+  const handleFeedbackSubmit = () => {
+    if (!feedback.trim()) {
+      Alert.alert("안내", "AI에게 요청할 수정 피드백을 입력해주세요!");
+      return;
+    }
+    regenerateMutation({ tripId: id!, feedback });
+  };
+
+  ///////////////////////////////////////////////////////////////////
 
   const getAllPlaces = () => {
     if (!planData?.itinerary) return [];
@@ -176,13 +157,7 @@ export default function GeneratedPlanScreen() {
     };
   };
 
-  const handleFeedbackSubmit = () => {
-    if (!feedback.trim()) {
-      Alert.alert("안내", "AI에게 요청할 수정 피드백을 입력해주세요!");
-      return;
-    }
-    mutate({ tripId: id!, feedback });
-  };
+  ///////////////////////////////////////////////////////////////////
 
   const handleShare = async () => {
     if (!planData) return;
@@ -209,52 +184,29 @@ export default function GeneratedPlanScreen() {
     }
   };
 
-  const { mutate: deleteTrip, isPending: deletePending } = useMutation({
-    mutationFn: async (tripId) => {
-      const response = await client.delete(`/v1/trip/${tripId}`);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tripList"] });
-      Alert.alert("삭제 완료", "여행 일정이 성공적으로 삭제되었습니다.");
-      router.replace("/(tabs)/plans");
-    },
-    onError: (error) => {
-      Alert.alert("삭제 실패", "삭제 중 오류가 발생했습니다.");
-    },
-  });
+  ///////////////////////////////////////////////////////////////////
 
-  if (isPending) {
-    return (
-      <View style={[styles.container, styles.center, theme.container]}>
-        <ActivityIndicator size="large" color={theme.indicatorColor} />
-        <Text style={[styles.loadingText, theme.textSub]}>
-          상세 일정을 불러오는 중...
-        </Text>
-      </View>
-    );
-  }
+  const { mutate: deleteTripMutation, isPending: deletePending } =
+    useDeleteTrip();
 
-  if (isError || !planData) {
-    return (
-      <View style={[styles.container, styles.center, theme.container]}>
-        <Text style={styles.errorText}>여행 일정을 불러올 수 없습니다. 😢</Text>
-        <Text style={[styles.errorSubText, theme.textSub]}>
-          {error?.message || "존재하지 않는 일정입니다."}
-        </Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>이전 화면으로 돌아가기</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const handleDeleteTrip = (tripId: number) => {
+    Alert.alert("삭제 확인", "정말 이 일정을 삭제하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        style: "destructive",
+        onPress: () => deleteTripMutation(tripId),
+      },
+    ]);
+  };
+
+  ///////////////////////////////////////////////////////////////////
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={[styles.container, theme.container]}
     >
-      {/* 상단 네비게이션 바 */}
       <View
         style={[styles.navBar, theme.navBar, { paddingTop: insets.top + 10 }]}
       >
@@ -280,7 +232,6 @@ export default function GeneratedPlanScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 🗺️ 1. 메인 헤더 카드 */}
         <View style={[styles.mainCard, theme.cardBg]}>
           <Text style={[styles.mainTitle, theme.textMain]}>
             {planData.title}
@@ -300,7 +251,6 @@ export default function GeneratedPlanScreen() {
           </Text>
         </View>
 
-        {/* 💡 2. 맞춤형 꿀팁 섹션 */}
         {planData.custom_tips && planData.custom_tips.length > 0 && (
           <View style={[styles.tipsCard, theme.tipsBg]}>
             <View style={styles.tipsHeader}>
@@ -323,7 +273,6 @@ export default function GeneratedPlanScreen() {
           </View>
         )}
 
-        {/* 🗺️ 동선 지도 (⚠️ 기존 코드 구조 100% 보존) */}
         {allPlaces.length > 0 && (
           <View style={[styles.mapCard, theme.cardBg]}>
             <View style={styles.mapHeader}>
@@ -396,7 +345,6 @@ export default function GeneratedPlanScreen() {
           </View>
         )}
 
-        {/* 📅 3. 상세 일차별 동선 리스트 */}
         <Text style={[styles.listSectionTitle, theme.textMain]}>
           동선 가이드
         </Text>
@@ -423,7 +371,6 @@ export default function GeneratedPlanScreen() {
                 {dayItem.places &&
                   dayItem.places.map((place: any, pIdx: number) => (
                     <View key={pIdx}>
-                      {/* 💡 동선 경로 버튼 추가 */}
                       {pIdx > 0 && (
                         <View style={styles.routeLinkContainer}>
                           <View
@@ -558,7 +505,6 @@ export default function GeneratedPlanScreen() {
             );
           })}
 
-        {/* 🛠️ 4. 하단 액션 영역 */}
         <View style={styles.actionGroup}>
           {!showFeedbackForm && (
             <>
@@ -577,24 +523,7 @@ export default function GeneratedPlanScreen() {
                     borderColor: theme.cardBg.borderColor,
                   },
                 ]}
-                onPress={() => {
-                  Alert.alert(
-                    "여행 삭제",
-                    "정말로 여행 일정을 삭제하시겠습니까?",
-                    [
-                      {
-                        text: "취소",
-                        onPress: () => console.log("삭제 취소됨"),
-                        style: "cancel",
-                      },
-                      {
-                        text: "삭제",
-                        onPress: () => deleteTrip(planData.id),
-                        style: "destructive",
-                      },
-                    ],
-                  );
-                }}
+                onPress={() => handleDeleteTrip(planData.id)}
               >
                 <Text style={[styles.listBtnText, theme.textSub]}>
                   일정 삭제하기
@@ -671,6 +600,8 @@ export default function GeneratedPlanScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -943,16 +874,13 @@ const styles = StyleSheet.create({
   submitBtnText: { color: "#FFFFFF", fontWeight: "600", fontSize: 14 },
   disabledBtn: { backgroundColor: "#9CA3AF" },
   customMarker: {
-    // 💡 완벽한 원형(Circle)을 만들기 위해 가로/세로 크기를 고정하고 동일하게 맞춤
     width: 32,
     height: 32,
-    borderRadius: 16, // width, height의 정확히 절반으로 주어 찌그러짐 없는 원형 보장
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2, // 테두리를 살짝 더 두껍게 주어 지도 레이어 위에서 명확하게 분리
+    borderWidth: 2,
     borderColor: "#FFFFFF",
-
-    // 💡 그림자를 조금 더 은은하고 부드럽게 퍼지도록 조정 (자연스러운 입체감)
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -968,9 +896,9 @@ const styles = StyleSheet.create({
   customMarkerText: {
     color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "900", // 글씨체를 조금 더 두껍게 하여 원형 안에서 숫자가 한눈에 들어오도록 개선
+    fontWeight: "900",
     textAlign: "center",
-    textAlignVertical: "center", // 안드로이드 텍스트 수직 중앙 정렬 안정화
-    includeFontPadding: false, // 텍스트 상하단 불필요한 패딩 제거로 완벽한 중앙 배치
+    textAlignVertical: "center",
+    includeFontPadding: false,
   },
 });

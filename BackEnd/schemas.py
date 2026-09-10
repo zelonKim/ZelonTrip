@@ -4,6 +4,7 @@ from datetime import datetime
 import re
 
 
+# AI 기반 여행 생성 요청 스키마
 class TripGenerateRequest(BaseModel):
     location: str = Field(..., min_length=1, description="목적지")
     days: int = Field(..., ge=0, description="여행 기간")
@@ -44,9 +45,10 @@ class TripGenerateRequest(BaseModel):
         return stripped
 
 
-######################################
+########################################################################
 
 
+# 여행 일정 상세 정보 스키마
 class DestinationDetail(BaseModel):
     place_name: str = Field(..., description="방문지 이름")
     description: str = Field(..., description="이 장소에 대한 간략한 소개")
@@ -63,6 +65,7 @@ class DestinationDetail(BaseModel):
     address: str = Field(..., description="해당 장소의 주소지")
 
 
+# 일차별 여행 일정 스키마
 class DailyItinerary(BaseModel):
     day: int = Field(..., description="여행 일차 (1일차, 2일차, 3일차, ...)")
     places: List[DestinationDetail] = Field(
@@ -70,7 +73,9 @@ class DailyItinerary(BaseModel):
     )
 
 
+# AI기반 여행 일정 응답 스키마
 class TripGenerateResponse(BaseModel):
+    id: int = Field(..., description="여행 일정 아이디")
     title: str = Field(..., description="유저의 취향을 저격한 여행 테마 타이틀")
     overview: str = Field(
         ..., description="유저의 MBTI와 취향, 동반자를 고려한 여행의 전체 개요"
@@ -83,28 +88,10 @@ class TripGenerateResponse(BaseModel):
     )
 
 
-######################################
+########################################################################
 
 
-class TripSaveRequest(BaseModel):
-    location: str = Field(..., description="여행지")
-    title: str = Field(..., description="여행 타이틀")
-    overview: str = Field(..., description="여행 개요")
-    custom_tips: List[str] = Field(..., description="맞춤형 꿀팁 리스트")
-    itinerary: List[DailyItinerary] = Field(..., description="일차별 상세 일정 리스트")
-
-
-class TripSaveResponse(BaseModel):
-    id: int = Field(..., description="DB에 저장된 고유 일정 ID")
-    message: str = Field(..., description="성공 메시지")
-
-    class Config:
-        from_attributes = True
-
-
-######################################
-
-
+# 여행 일정 정보 스키마
 class TripListElement(BaseModel):
     id: int
     location: str
@@ -113,10 +100,12 @@ class TripListElement(BaseModel):
     itinerary: List[Dict[str, Any]]
 
 
+# 여행 일정 전체 조회 스키마
 class TripListResponse(BaseModel):
     trips: List[TripListElement]
 
 
+# 여행 일정 상세 조회 스키마
 class TripDetailResponse(BaseModel):
     id: int
     location: str
@@ -128,9 +117,10 @@ class TripDetailResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-######################################
+#########################################################################
 
 
+# 여행 수정 요청 스키마
 class TripUpdateRequest(BaseModel):
     title: Optional[str] = None
     overview: Optional[str] = None
@@ -138,6 +128,7 @@ class TripUpdateRequest(BaseModel):
     itinerary: Optional[List[DailyItinerary]] = None
 
 
+# 여행 수정 응답 스키마
 class TripUpdateResponse(BaseModel):
     id: int
     title: str
@@ -147,9 +138,10 @@ class TripUpdateResponse(BaseModel):
     message: str
 
 
-######################################
+#########################################################################
 
 
+# AI 기반 여행 재생성 요청 스키마
 class TripRegenerateRequest(BaseModel):
     feedback: str = Field(
         ...,
@@ -157,6 +149,7 @@ class TripRegenerateRequest(BaseModel):
     )
 
 
+# AI 기반 여행 재생성 응답 스키마
 class TripRegenerateResponse(BaseModel):
     id: int = Field(..., description="DB에 저장된 고유 일정 ID")
     location: str = Field(..., description="여행지")
@@ -170,24 +163,20 @@ class TripRegenerateResponse(BaseModel):
         from_attributes = True
 
 
-#####################################
+############################################################################
 
 
+# 회원가입 요청 스키마
 class UserCreateRequest(BaseModel):
-    # 이메일 검증은 그대로 유지
     username: EmailStr = Field(..., description="유저 이메일 주소")
-
-    # 💡 pattern 속성을 제거하고 일반 str 필드로 둡니다. (최소 길이 제한만 유지)
     password: str = Field(
         ..., min_length=8, description="영문, 숫자 조합 8자 이상 비밀번호"
     )
     password_confirm: str = Field(..., min_length=8)
 
-    # 💡 1. 비밀번호 복잡성 검사 (영문, 숫자 조합 8자 이상)
     @field_validator("password")
     @classmethod
     def validate_password_complexity(cls, v: str) -> str:
-        # 파이썬 re 모듈은 전방탐색(?=...)을 완벽히 지원합니다.
         password_regex = r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$"
         if not re.match(password_regex, v):
             raise ValueError(
@@ -195,7 +184,6 @@ class UserCreateRequest(BaseModel):
             )
         return v
 
-    # 💡 2. 비밀번호 일치 검사 (기존 코드 유지)
     @field_validator("password_confirm")
     @classmethod
     def match_passwords(cls, v: str, info):
@@ -204,6 +192,7 @@ class UserCreateRequest(BaseModel):
         return v
 
 
+# 회원가입 응답 스키마
 class UserCreateResponse(BaseModel):
     id: int
     username: EmailStr
@@ -212,29 +201,33 @@ class UserCreateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-##################################
+######################################################################
 
 
+# 로그인 요청 스키마
 class UserLoginRequest(BaseModel):
     username: str
     password: str
 
 
+# 로그인 응답 스키마
 class UserLoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
 
-###################################
+#######################################################################
 
 
+# 닉네임 변경 요청 스키마
 class NicknameUpdateRequest(BaseModel):
     nickname: str = Field(..., min_length=1, max_length=20)
 
 
-#####################################
+###########################################################################
 
 
+# 유저 정보 응답 스키마
 class UserMeResponse(BaseModel):
     id: int
     username: EmailStr
@@ -244,9 +237,10 @@ class UserMeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-#####################################
+###########################################################################
 
 
+# 유저 통계 응답 스키마
 class UserStatsResponse(BaseModel):
     total_location: int
     total_days: int
@@ -255,9 +249,10 @@ class UserStatsResponse(BaseModel):
         from_attributes = True
 
 
-#####################################
+###########################################################################
 
 
+# 여행지 추천 정보 스키마
 class AIRecommendedItem(BaseModel):
     title: str = Field(description="추천 여행지 명칭")
     category: str = Field(description="여행 카테고리 (예: 힐링, 맛집, 액티비티 등)")
@@ -265,10 +260,12 @@ class AIRecommendedItem(BaseModel):
     rating: float = Field(description="4.5 ~ 5.0 사이의 가상 평점")
 
 
+# 여행지 추천 AI 응답 포맷 스키마
 class AIRecommendationList(BaseModel):
     recommendations: List[AIRecommendedItem]
 
 
+# 여행지 추천 응답 스키마
 class TripRecommendResponse(BaseModel):
     id: int
     title: str
@@ -279,9 +276,9 @@ class TripRecommendResponse(BaseModel):
     imageUrl: str
 
 
-###############################
+#######################################################################
 
-
+# 여행지 질문 요청 스키마
 class LocationAskRequest(BaseModel):
     keyword: str = Field(
         ...,
@@ -289,6 +286,7 @@ class LocationAskRequest(BaseModel):
     )
 
 
+# 여행지 질문 응답 스키마
 class LocationAskResponse(BaseModel):
     keyword: str = Field(..., description="조회한 여행지 이름")
     content: str = Field(..., description="AI가 생성한 감성적이고 알찬 여행 정보 답변")
@@ -297,9 +295,10 @@ class LocationAskResponse(BaseModel):
     )
 
 
-###############################
+#######################################################################
 
 
+# 피드백 접수 요청 스키마
 class FeedbackCreateRequest(BaseModel):
     content: str = Field(
         ...,
@@ -308,15 +307,15 @@ class FeedbackCreateRequest(BaseModel):
         description="피드백 내용 (5자 이상 300자 이하)",
     )
 
-
+# 피드백 접수 응답 스키마
 class FeedbackCreateResponse(BaseModel):
     status: str
     message: str
 
 
-###############################
+#######################################################################
 
-
+# 공지사항 응답 스키마
 class NoticeResponse(BaseModel):
     id: int
     title: str
@@ -327,20 +326,18 @@ class NoticeResponse(BaseModel):
         from_attributes = True
 
 
-#############################
+#####################################################################
 
-
+# 푸시 알림 내용 스키마
 class NotificationContents(BaseModel):
     title: str
     body: str
     message: str | None = None
 
 
+# 푸시 알림 요청 스키마
 class NotificationRequest(BaseModel):
     pushToken: str
     deviceId: str
     contents: NotificationContents
-    planId: str | None = None 
-
-
-
+    planId: str | None = None

@@ -1,4 +1,3 @@
-import React from "react";
 import {
   View,
   Text,
@@ -18,15 +17,14 @@ import {
   CalendarDays,
   Inbox,
 } from "lucide-react-native";
-import { client } from "@/api/client";
-import { useAppTheme } from "../_layout"; // 💡 루트 레이아웃 훅 가져오기
+import { useAppTheme } from "@/utils/ThemeContext";
+import { getTripList } from "@/api/trip/getTripList";
 
 export default function PlansScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { isDarkMode } = useAppTheme(); // 💡 다크모드 상태
+  const insets = useSafeAreaInsets();
+  const { isDarkMode } = useAppTheme();
 
-  // 💡 유기적 테마 객체
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     textMain: { color: isDarkMode ? "#F9FAFB" : "#111827" },
@@ -41,22 +39,14 @@ export default function PlansScreen() {
     iconColor: isDarkMode ? "#9CA3AF" : "#6B7280",
   };
 
-  const fetchTripList = async () => {
-    const response = await client.get("/v1/trip/list");
-    return response.data;
-  };
+  ///////////////////////////////////////////////////////////////////////
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["tripList"],
-    queryFn: fetchTripList,
+    queryFn: getTripList,
   });
 
-  const handlePlanPress = (id: any) => {
-    router.push({
-      pathname: "/(tabs)/plan/[id]",
-      params: { id },
-    });
-  };
+  const plans = data?.trips || [];
 
   if (isPending) {
     return (
@@ -80,7 +70,14 @@ export default function PlansScreen() {
     );
   }
 
-  const plans = data?.trips || [];
+  const handlePlanPress = (id: number) => {
+    router.push({
+      pathname: "/(tabs)/plan/[id]",
+      params: { id },
+    });
+  };
+
+  ////////////////////////////////////////////////////////////////////
 
   return (
     <View style={[styles.container, theme.container]}>
@@ -171,6 +168,8 @@ export default function PlansScreen() {
     </View>
   );
 }
+
+////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

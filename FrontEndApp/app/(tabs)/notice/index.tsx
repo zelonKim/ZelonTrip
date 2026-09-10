@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,29 +10,18 @@ import {
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { client } from "@/api/client";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft } from "lucide-react-native"; // 💡 뒤로가기 아이콘 추가
+import { ChevronLeft } from "lucide-react-native";
 import { useAppTheme } from "../../_layout";
-
-interface Notice {
-  id: number;
-  title: string;
-  content: string;
-  created_at: string;
-}
-
-const fetchNotices = async (): Promise<Notice[]> => {
-  const response = await client.get("/v1/notice");
-  return response.data;
-};
+import { Notice } from "@/types/Notice";
+import { getNotices } from "@/api/notice/getNotices";
+import { RenderNoticeItem } from "@/components/renderNoticeItem";
 
 export default function NoticePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const { isDarkMode } = useAppTheme();
 
-  // 💡 공지사항 화면 맞춤 유기적 테마 객체
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     header: {
@@ -45,9 +34,11 @@ export default function NoticePage() {
       backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
       borderColor: isDarkMode ? "#374151" : "#E5E7EB",
     },
-    iconColor: isDarkMode ? "#9CA3AF" : "#111827", // 💡 헤더 아이콘 컬러 추가
+    iconColor: isDarkMode ? "#9CA3AF" : "#111827",
     indicatorColor: isDarkMode ? "#60A5FA" : "#3B82F6",
   };
+
+  ///////////////////////////////////////////////////////////////////////////////
 
   const {
     data: notices,
@@ -57,33 +48,13 @@ export default function NoticePage() {
     refetch,
   } = useQuery<Notice[]>({
     queryKey: ["notices"],
-    queryFn: fetchNotices,
+    queryFn: getNotices,
   });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refetch();
     setIsRefreshing(false);
-  };
-
-  const renderNoticeItem = ({ item }: { item: Notice }) => {
-    return (
-      <TouchableOpacity
-        style={[styles.card, theme.cardBg]}
-        onPress={() => router.push(`/(tabs)/notice/${item.id}`)}
-      >
-        <Text style={[styles.date, theme.textSub]}>
-          {new Date(item.created_at).toLocaleDateString("ko-KR")}
-        </Text>
-
-        <Text style={[styles.title, theme.textMain]} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={[styles.summary, theme.textSub]} numberOfLines={2}>
-          {item.content}
-        </Text>
-      </TouchableOpacity>
-    );
   };
 
   if (isLoading) {
@@ -111,9 +82,10 @@ export default function NoticePage() {
     );
   }
 
+  /////////////////////////////////////////////////////////////////
+
   return (
     <View style={[styles.container, theme.container]}>
-      {/* 💡 상단 헤더 영역 수정 (좌측 뒤로가기 버튼 배치 및 정렬) */}
       <View
         style={[styles.header, theme.header, { paddingTop: insets.top + 10 }]}
       >
@@ -127,14 +99,15 @@ export default function NoticePage() {
 
         <Text style={[styles.headerTitle, theme.textMain]}>공지사항 📢</Text>
 
-        {/* 우측 밸런스를 맞추기 위한 빈 뷰 */}
         <View style={styles.headerRightPlaceholder} />
       </View>
 
       <FlatList
         data={notices}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={renderNoticeItem}
+        renderItem={({ item }) => (
+          <RenderNoticeItem item={item} theme={theme} />
+        )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -157,14 +130,16 @@ export default function NoticePage() {
   );
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   header: {
-    flexDirection: "row", // 💡 가로 배치
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between", // 💡 양쪽 정렬로 중앙 타이틀 유지
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
@@ -176,13 +151,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   headerTitle: {
-    fontSize: 18, // 💡 헤더 내비바 룩앤필에 맞춰 폰트 사이즈 조정
+    fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
     flex: 1,
   },
   headerRightPlaceholder: {
-    width: 40, // 💡 backButton과 동일한 크기로 지정해서 타이틀이 완벽히 중앙에 오도록 처리
+    width: 40,
   },
   listContainer: {
     padding: 16,

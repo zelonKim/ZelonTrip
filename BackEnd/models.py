@@ -4,7 +4,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON, TIMESTAMP, Text
 from pydantic import EmailStr
 
-
+# 유저 테이블
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -35,9 +35,10 @@ class User(SQLModel, table=True):
     feedbacks: List["User_Feedback"] = Relationship(back_populates="user")
 
 
-########################################
+#######################################################################
 
 
+# 여행 일정 테이블
 class Trip_Plan(SQLModel, table=True):
     __tablename__ = "trip_plan"
 
@@ -62,9 +63,10 @@ class Trip_Plan(SQLModel, table=True):
     user: User = Relationship(back_populates="trip_plans")
 
 
-########################################
+#######################################################################
 
 
+# 여행지 질문 테이블
 class Ask_Location(SQLModel, table=True):
     __tablename__ = "ask_location"
 
@@ -94,9 +96,10 @@ class Ask_Location(SQLModel, table=True):
     user: User = Relationship(back_populates="ask_location")
 
 
-########################################
+#######################################################################
 
 
+# 유저 피드백 테이블
 class User_Feedback(SQLModel, table=True):
     __tablename__ = "user_feedbacks"
 
@@ -120,9 +123,10 @@ class User_Feedback(SQLModel, table=True):
     user: "User" = Relationship()
 
 
-##############################################
+#############################################################################
 
 
+# 공지사항 테이블
 class Notice(SQLModel, table=True):
     __tablename__ = "notices"
 
@@ -143,9 +147,10 @@ class Notice(SQLModel, table=True):
     )
 
 
-##############################################
+#############################################################################
 
 
+# 로그아웃 처리 테이블
 class BlacklistedToken(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     token: str = Field(index=True, unique=True)

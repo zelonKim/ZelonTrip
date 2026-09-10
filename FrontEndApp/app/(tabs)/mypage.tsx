@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,6 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  Modal,
-  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -23,28 +21,22 @@ import {
   Moon,
 } from "lucide-react-native";
 import { router } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { client } from "@/api/client";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-
-// 💡 루트에서 만든 전역 테마 훅 임포트
+import { useQueryClient } from "@tanstack/react-query";
 import { useAppTheme } from "../_layout";
+import { useSendFeedback } from "@/hooks/useSendFeedback";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserTripStats } from "@/hooks/useUserTripStats";
+import { logoutUser } from "@/utils/logoutUser";
+import { useDeactivateUser } from "@/hooks/useDeactivateUser";
+import { useUpdateNickname } from "@/hooks/useUpdateNickname";
+import { NicknameModal } from "@/components/modals/NicknameModal";
+import { FeedbackModal } from "@/components/modals/FeedbackModal";
 
 export default function MyPageScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [inputNickname, setInputNickname] = useState("");
-
-  const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
-
-  // 💡 전역 Context 훅 사용
   const { isDarkMode, toggleDarkMode } = useAppTheme();
 
-  // 💡 테마 스타일에 전역 isDarkMode 상태 적용
   const theme = {
     container: { backgroundColor: isDarkMode ? "#111827" : "#F9FAFB" },
     header: {
@@ -70,8 +62,6 @@ export default function MyPageScreen() {
     },
     badgeText: { color: isDarkMode ? "#60A5FA" : "#2563EB" },
     editBadgeBg: { backgroundColor: isDarkMode ? "#374151" : "#F3F4F6" },
-
-    // 💡 모달 컴포넌트 전용 다크모드 스타일 추가
     modalBg: { backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF" },
     inputBg: {
       backgroundColor: isDarkMode ? "#111827" : "#F9FAFB",
@@ -81,23 +71,29 @@ export default function MyPageScreen() {
     placeholderColor: isDarkMode ? "#4B5563" : "#9CA3AF",
   };
 
-  const feedbackMutation = useMutation({
-    mutationFn: async (content: string) => {
-      const response = await client.post("/v1/user/feedback", { content });
-      return response.data;
-    },
-    onSuccess: () => {
-      Alert.alert("✅ 접수 완료", "피드백이 성공적으로 접수되었습니다!");
-      setIsFeedbackModalVisible(false);
-      setFeedbackText("");
-    },
-    onError: (error: any) => {
-      const errMsg =
-        error.response?.data?.detail ||
-        "피드백 전송에 실패했습니다. 다시 시도해 주세요.";
-      Alert.alert("오류", errMsg);
-    },
-  });
+  /////////////////////////////////////////////////////////////////////////////
+
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [inputNickname, setInputNickname] = useState("");
+  const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+
+  const { data: profileData, isPending: isProfilePending } = useUserProfile();
+  const { data: statsData, isPending: isStatsPending } = useUserTripStats();
+
+  ///////////////////////////////////////////////////////////////////////////
+
+  const handleFeedbackMenuPress = () => {
+    setIsFeedbackModalVisible(true);
+  };
+
+  const { mutate: feedbackMutation, isPending: isFeedbackPending } =
+    useSendFeedback({
+      onSuccess: () => {
+        setIsFeedbackModalVisible(false);
+        setFeedbackText("");
+      },
+    });
 
   const handleSendFeedback = () => {
     const trimmedFeedback = feedbackText.trim();
@@ -105,28 +101,10 @@ export default function MyPageScreen() {
       Alert.alert("안내", "피드백 내용을 입력해 주세요.");
       return;
     }
-    feedbackMutation.mutate(feedbackText);
+    feedbackMutation(trimmedFeedback);
   };
 
-  const { data: userData, isPending: isUserPending } = useQuery({
-    queryKey: ["currentUserProfile"],
-    queryFn: async () => {
-      const response = await client.get("/v1/auth/me");
-      return response.data;
-    },
-  });
-
-  const { data: statsData, isPending: isStatsPending } = useQuery({
-    queryKey: ["userTripStats"],
-    queryFn: async () => {
-      const response = await client.get("/v1/user/stats");
-      return response.data;
-    },
-  });
-
-  const handleFeedbackMenuPress = () => {
-    setIsFeedbackModalVisible(true);
-  };
+  ///////////////////////////////////////////////////////////////////////////
 
   const handleLogout = () => {
     Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
@@ -134,84 +112,45 @@ export default function MyPageScreen() {
       {
         text: "로그아웃",
         style: "destructive",
-        onPress: async () => {
-          try {
-            await SecureStore.deleteItemAsync("userToken");
-            queryClient.clear();
-            router.replace("/(auth)/login");
-          } catch (error) {
-            Alert.alert("안내", "로그아웃 처리 중 오류가 발생했습니다.");
-          }
-        },
+        onPress: logoutUser,
       },
     ]);
   };
 
+  /////////////////////////////////////////////////////////////////////////////
+
+  const { mutate: deactivateMutation, isPending: isDeactivatePending } =
+    useDeactivateUser();
+
   const handleDeactivate = () => {
     Alert.alert(
       "회원 탈퇴",
-      "정말 탈퇴하시겠습니까? \n 탈퇴 시 서비스 이용이 제한됩니다.",
+      "정말 탈퇴하시겠습니까? \n탈퇴 시 서비스 이용이 제한됩니다.",
       [
         { text: "취소", style: "cancel" },
         {
           text: "탈퇴하기",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await client.patch("/v1/auth/deactivate");
-              await SecureStore.deleteItemAsync("userToken");
-              queryClient.clear();
-
-              Alert.alert("안내", "그동안 서비스를 이용해 주셔서 감사합니다.", [
-                {
-                  text: "확인",
-                  onPress: () => router.replace("/(auth)/login"),
-                },
-              ]);
-            } catch (error: any) {
-              const errMsg =
-                error.response?.data?.detail || "서버 통신에 실패했습니다.";
-              Alert.alert("탈퇴 실패", errMsg);
-            }
-          },
+          onPress: () => deactivateMutation(),
         },
       ],
     );
   };
 
+  /////////////////////////////////////////////////////////////////////////////
+
   const openNicknameModal = () => {
-    setInputNickname(userData?.nickname || "");
+    setInputNickname(profileData?.nickname || "");
     setIsModalVisible(true);
   };
 
-  const nicknameMutation = useMutation({
-    mutationFn: async (newNickname: string) => {
-      const response = await client.patch("/v1/user/nickname", {
-        nickname: newNickname,
-      });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["currentUserProfile"], (oldData: any) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          nickname: data.nickname,
-        };
-      });
-
-      Alert.alert("성공", "닉네임이 성공적으로 설정되었습니다.");
-      setIsModalVisible(false);
-      setInputNickname("");
-
-      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
-    },
-    onError: (error: any) => {
-      const errMsg =
-        error.response?.data?.detail || "닉네임 저장에 실패했습니다.";
-      Alert.alert("오류", errMsg);
-    },
-  });
+  const { mutate: saveNicknameMutation, isPending: isSaveNicknamePending } =
+    useUpdateNickname({
+      onSuccess: () => {
+        setIsModalVisible(false);
+        setInputNickname("");
+      },
+    });
 
   const handleSaveNickname = () => {
     const trimmedNickname = inputNickname.trim();
@@ -219,12 +158,13 @@ export default function MyPageScreen() {
       Alert.alert("안내", "닉네임을 입력해 주세요.");
       return;
     }
-    nicknameMutation.mutate(trimmedNickname);
+    saveNicknameMutation(trimmedNickname);
   };
+
+  /////////////////////////////////////////////////////////////////////////////
 
   return (
     <View style={[styles.container, theme.container]}>
-      {/* 헤더 영역 */}
       <View
         style={[styles.header, theme.header, { paddingTop: insets.top + 20 }]}
       >
@@ -238,7 +178,6 @@ export default function MyPageScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 👣 [1. 프로필 & 취향 배지 영역] */}
         <View style={[styles.profileCard, theme.card]}>
           <View style={styles.profileHeader}>
             <View style={styles.avatarRow}>
@@ -246,7 +185,7 @@ export default function MyPageScreen() {
                 <User size={28} color={theme.iconUserColor} />
               </View>
               <View style={styles.profileInfo}>
-                {isUserPending ? (
+                {isProfilePending ? (
                   <ActivityIndicator
                     size="small"
                     color="#2563EB"
@@ -254,10 +193,10 @@ export default function MyPageScreen() {
                   />
                 ) : (
                   <>
-                    {userData?.nickname ? (
+                    {profileData?.nickname ? (
                       <View style={styles.nicknameContainer}>
                         <Text style={[styles.profileName, theme.textMain]}>
-                          {userData.nickname}
+                          {profileData.nickname}
                         </Text>
                         <TouchableOpacity
                           style={[styles.editBadge, theme.editBadgeBg]}
@@ -279,7 +218,7 @@ export default function MyPageScreen() {
                       </TouchableOpacity>
                     )}
                     <Text style={[styles.profileEmail, theme.textSub]}>
-                      {userData?.username}
+                      {profileData?.username}
                     </Text>
                   </>
                 )}
@@ -289,7 +228,6 @@ export default function MyPageScreen() {
 
           <View style={[styles.dividerLight, theme.dividerLight]} />
 
-          {/* AI 취향 페르소나 배지 라인 */}
           <View style={styles.badgeSection}>
             <View style={styles.badgeTitleRow}>
               <Award size={16} color={theme.iconColor} />
@@ -302,9 +240,9 @@ export default function MyPageScreen() {
                 <Text style={[styles.personaBadgeText, theme.badgeText]}>
                   {isStatsPending
                     ? "⏳ 분석 중..."
-                    : statsData?.total_location >= 5
+                    : (statsData?.total_location ?? 0) >= 5
                       ? "✈️ 프로 여행러"
-                      : statsData?.total_location >= 2
+                      : (statsData?.total_location ?? 0) >= 2
                         ? "👟 중급 여행러"
                         : "🐣 초보 여행러"}
                 </Text>
@@ -323,7 +261,6 @@ export default function MyPageScreen() {
 
         <Text style={{ marginTop: 2 }}></Text>
 
-        {/* 👣 [2. 여행 발자국 영역] */}
         <View style={[styles.menuGroupCard, theme.card]}>
           <View style={styles.statsRow}>
             <View style={styles.statsIconWrapper}></View>
@@ -365,12 +302,10 @@ export default function MyPageScreen() {
           </View>
         </View>
 
-        {/* ⚙️ [3. 앱 설정 및 지원] */}
         <Text style={[styles.sectionTitle, theme.textSection]}>
           앱 설정 및 지원
         </Text>
         <View style={[styles.menuGroupCard, theme.card]}>
-          {/* 다크모드 설정 스위치 */}
           <View style={styles.menuItem}>
             <View style={styles.menuItemLeft}>
               <Moon size={20} color={theme.iconColor} />
@@ -387,7 +322,6 @@ export default function MyPageScreen() {
 
           <View style={[styles.dividerMenu, theme.border]} />
 
-          {/* 공지사항 */}
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => router.push("/(tabs)/notice")}
@@ -401,7 +335,6 @@ export default function MyPageScreen() {
 
           <View style={[styles.dividerMenu, theme.border]} />
 
-          {/* 피드백 보내기 */}
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleFeedbackMenuPress}
@@ -416,7 +349,6 @@ export default function MyPageScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 🔒 [4. 계정 관리] */}
         <View style={styles.accountManagementRow}>
           <TouchableOpacity onPress={handleLogout}>
             <Text style={styles.accountText}>로그아웃</Text>
@@ -431,137 +363,29 @@ export default function MyPageScreen() {
         <Text style={styles.versionText}>버전 정보 v1.0.0 (최신 버전)</Text>
       </ScrollView>
 
-      {/* 닉네임 팝업 모달 */}
-      <Modal
-        visible={isModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, theme.modalBg]}>
-            <Text style={[styles.modalTitle, theme.textMain]}>닉네임 설정</Text>
-            <Text style={[styles.modalSubtitle, theme.textSub]}>
-              새로운 닉네임을 입력해 주세요.
-            </Text>
+      <NicknameModal
+        isVisible={isModalVisible}
+        initialValue={profileData?.nickname ?? ""}
+        isPending={isSaveNicknamePending}
+        theme={theme}
+        styles={styles}
+        onClose={() => setIsModalVisible(false)}
+        onSave={handleSaveNickname}
+      />
 
-            <TextInput
-              style={[styles.nicknameInput, theme.inputBg, theme.textMain]}
-              placeholder="닉네임 입력"
-              placeholderTextColor={theme.placeholderColor}
-              value={inputNickname}
-              onChangeText={setInputNickname}
-              maxLength={15}
-              autoFocus={true}
-            />
-
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.modalCancelButton,
-                  theme.cancelBtnBg,
-                ]}
-                onPress={() => setIsModalVisible(false)}
-                disabled={nicknameMutation.isPending}
-              >
-                <Text style={[styles.modalCancelButtonText, theme.textMain]}>
-                  취소
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalSaveButton]}
-                onPress={handleSaveNickname}
-                disabled={nicknameMutation.isPending}
-              >
-                {nicknameMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalSaveButtonText}>저장</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 피드백 모달 */}
-      <Modal
-        visible={isFeedbackModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsFeedbackModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior="padding"
-            keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 50}
-            style={styles.keyboardAvoidingWrapper}
-          >
-            <View style={[styles.modalContainer, theme.modalBg]}>
-              <Text style={[styles.modalTitle, theme.textMain]}>
-                💬 피드백 보내기
-              </Text>
-              <Text
-                style={[
-                  styles.modalSubtitle,
-                  theme.textSub,
-                  { textAlign: "center" },
-                ]}
-              >
-                ZelonTrip을 이용하면서 좋았던 점이나 {"\n"}불편했던 점을
-                자유롭게 작성해주세요.
-              </Text>
-
-              <TextInput
-                style={[styles.feedbackInput, theme.inputBg, theme.textMain]}
-                placeholder="여기에 내용을 입력해 주세요 (최대 300자)"
-                placeholderTextColor={theme.placeholderColor}
-                value={feedbackText}
-                onChangeText={setFeedbackText}
-                maxLength={300}
-                multiline={true}
-                numberOfLines={4}
-                textAlignVertical="top"
-                autoFocus={true}
-              />
-
-              <View style={styles.modalButtonRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.modalButton,
-                    styles.modalCancelButton,
-                    theme.cancelBtnBg,
-                  ]}
-                  onPress={() => {
-                    setIsFeedbackModalVisible(false);
-                    setFeedbackText("");
-                  }}
-                  disabled={feedbackMutation.isPending}
-                >
-                  <Text style={[styles.modalCancelButtonText, theme.textMain]}>
-                    취소
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalSaveButton]}
-                  onPress={handleSendFeedback}
-                  disabled={feedbackMutation.isPending}
-                >
-                  {feedbackMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.modalSaveButtonText}>보내기</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+      <FeedbackModal
+        isVisible={isFeedbackModalVisible}
+        isPending={isFeedbackPending}
+        theme={theme}
+        styles={styles}
+        onClose={() => setIsFeedbackModalVisible(false)}
+        onSubmit={handleSendFeedback}
+      />
     </View>
   );
 }
+
+/////////////////////////////////////////////////////////////////////////////
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
