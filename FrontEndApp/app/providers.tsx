@@ -6,7 +6,7 @@ import {
   DefaultTheme,
 } from "@react-navigation/native";
 import { APIProvider } from "@/api/api-provider";
-import defaultThemeConfig from "@/theme/use-theme-config";
+import defaultThemeConfig from "@/utils/use-theme-config";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 export const Providers = ({

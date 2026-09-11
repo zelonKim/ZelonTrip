@@ -12,10 +12,9 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
-import { useAppTheme } from "../../_layout";
-import { Notice } from "@/types/Notice";
+import { useAppTheme } from "@/utils/ThemeContext";
 import { getNotices } from "@/api/notice/getNotices";
-import { RenderNoticeItem } from "@/components/renderNoticeItem";
+import { RenderNoticeItem } from "@/components/RenderNoticeItem";
 
 export default function NoticePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
