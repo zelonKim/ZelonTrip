@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Compass,
   ChevronLeft,
@@ -13,120 +13,67 @@ import {
   Navigation,
   MapPin,
 } from "lucide-react";
-import { client } from "@/api/client";
-import GoogleMapSection from "./GoogleMapSection";
+import GoogleMapSection from "../../../component/GoogleMapSection";
 import { useTheme } from "@/context/ThemeContext";
 import { dayColors } from "@/constants/daysColors";
+import { openGoogleMapsDirection } from "@/utils/openGoogleMapsDirection";
+import { getTripDetail } from "@/api/trip/getTripDetail";
+import { useRegenerateTrip } from "@/hooks/useRegenerateTrip";
+import { useDeleteTrip } from "@/hooks/useDeleteTrip";
+import { planSharing } from "@/utils/planSharing";
+import { ItineraryItem } from "@/types/ItineraryItem";
+import { Place } from "@/types/Place";
 
 export default function GeneratedPlanPage() {
   const router = useRouter();
   const { id } = useParams();
-  const queryClient = useQueryClient();
   const { isDarkMode } = useTheme();
 
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedback, setFeedback] = useState("");
 
+  const { mutate: regenerateMutation, isPending: isRegenerating } =
+    useRegenerateTrip({
+      onSuccessCallback: () => {
+        setFeedback("");
+        setShowFeedbackForm(false);
+      },
+    });
+
+  const handleFeedbackSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!feedback.trim()) {
+      alert("AI에게 요청할 수정 피드백을 입력해주세요!");
+      return;
+    }
+    regenerateMutation({ tripId: id!, feedback });
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////
+
+  const { mutate: deleteTripMutation, isPending: deleteTripPending } =
+    useDeleteTrip();
+
+  const handleDeleteTrip = (tripId: number | string) => {
+    if (confirm("정말로 여행 일정을 삭제하시겠습니까?")) {
+      deleteTripMutation(tripId);
+    }
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////
+
   const {
     data: planData,
-    isPending,
-    isError,
-    error,
+    isPending: isPlanPending,
+    isError: isPlanError,
+    error: PlanError,
   } = useQuery({
     queryKey: ["tripDetail", id],
-    queryFn: async () => {
-      const res = await client.get(`/v1/trip/${id}`);
-      return res.data;
-    },
+    queryFn: () => getTripDetail(id!),
     enabled: !!id,
   });
 
-  const { mutate: regenerateTrip, isPending: isRegenerating } = useMutation({
-    mutationFn: async ({ feedback }: { feedback: string }) => {
-      const res = await client.post(`/v1/trip/${id}/regenerate`, { feedback });
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tripDetail", id] });
-      queryClient.invalidateQueries({ queryKey: ["tripList"] });
-      setFeedback("");
-      setShowFeedbackForm(false);
-      alert("보완 완료 ✨\nAI가 일정을 보완하였습니다!");
-    },
-    onError: (err: any) => {
-      alert(err?.response?.data?.detail || "일정 보완 중 오류가 발생했습니다.");
-    },
-  });
-
-  const { mutate: deleteTrip, isPending: deletePending } = useMutation({
-    mutationFn: async () => {
-      const response = await client.delete(`/v1/trip/${id}`);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tripList"] });
-      queryClient.invalidateQueries({ queryKey: ["userTripStats"] });
-      queryClient.invalidateQueries({ queryKey: ["tripRecommend"] });
-      alert("여행 일정이 성공적으로 삭제되었습니다.");
-      router.replace("/plans");
-    },
-    onError: () => {
-      alert("삭제 중 오류가 발생했습니다.");
-    },
-  });
-
-  const handleFeedbackSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedback.trim())
-      return alert("AI에게 요청할 수정 피드백을 입력해주세요!");
-    regenerateTrip({ feedback });
-  };
-
-  const handleDeletePress = () => {
-    if (confirm("정말로 여행 일정을 삭제하시겠습니까?")) {
-      deleteTrip();
-    }
-  };
-
-  const handleShare = async () => {
-    if (!planData) return;
-    const shareMessage = `✈️ [${planData.location}] 여행 일정을 공유합니다!\n\n📌 제목: ${planData.title}\n📝 개요: ${planData.overview}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${planData.location} 여행 일정`,
-          text: shareMessage,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.log("공유 취소 또는 에러", err);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(
-          `${shareMessage}\n\n👇 링크 확인하기\n${window.location.href}`,
-        );
-        alert(
-          "여행 일정 정보와 주소가 클립보드에 복사되었습니다! 편하게 공유해 보세요.",
-        );
-      } catch {
-        alert("공유하기를 지원하지 않는 브라우저입니다.");
-      }
-    }
-  };
-
-  const openGoogleMapsDirection = (
-    startLat: number,
-    startLng: number,
-    destLat: number,
-    destLng: number,
-  ) => {
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${startLat},${startLng}&destination=${destLat},${destLng}&travelmode=transit`;
-    window.open(googleMapsUrl, "_blank");
-  };
-
-  if (isPending) {
+  if (isPlanPending) {
     return (
       <div
         className={`min-h-screen flex flex-col items-center justify-center p-5 gap-3 transition-colors duration-200 ${isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}
@@ -141,7 +88,7 @@ export default function GeneratedPlanPage() {
     );
   }
 
-  if (isError || !planData) {
+  if (isPlanError || !planData) {
     return (
       <div
         className={`min-h-screen flex flex-col items-center justify-center p-5 text-center transition-colors duration-200 ${isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}
@@ -152,7 +99,7 @@ export default function GeneratedPlanPage() {
         <p
           className={`text-xs mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
         >
-          {error?.message || "존재하지 않는 일정입니다."}
+          {PlanError?.message || "존재하지 않는 일정입니다."}
         </p>
         <button
           onClick={() => router.back()}
@@ -165,12 +112,12 @@ export default function GeneratedPlanPage() {
   }
 
   const allPlaces = Array.isArray(planData?.itinerary)
-    ? planData.itinerary.flatMap((dayItem: any) =>
+    ? planData.itinerary.flatMap((dayItem) =>
         Array.isArray(dayItem?.places) ? dayItem.places : [],
       )
     : [];
 
-  ////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////
 
   return (
     <div
@@ -195,7 +142,7 @@ export default function GeneratedPlanPage() {
           {planData.location} 여행 일정 ✨
         </span>
         <button
-          onClick={handleShare}
+          onClick={() => planSharing(planData)}
           className={`w-10 h-10 flex items-center justify-center transition-colors ${isDarkMode ? "text-gray-300 hover:text-white" : "text-gray-700 hover:text-gray-900"}`}
         >
           <Share2 size={20} />
@@ -283,7 +230,7 @@ export default function GeneratedPlanPage() {
               />
               <h3 className="text-sm font-bold">한눈에 보는 방문 명소 🗺️</h3>
             </div>
-            {/* 구글지도 컴포넌트 본체는 요청대로 스타일 내부 수정을 방지하고 원본 유지 전달 */}
+
             <GoogleMapSection itinerary={planData.itinerary} />
           </div>
         )}
@@ -291,134 +238,136 @@ export default function GeneratedPlanPage() {
         <div>
           <h2 className="text-base font-bold mb-3.5 pl-0.5">동선 가이드</h2>
           <div className="flex flex-col gap-5">
-            {planData.itinerary?.map((dayItem: any, dayIdx: number) => {
-              const currentColor = dayColors[dayIdx % dayColors.length];
+            {planData.itinerary?.map(
+              (dayItem: ItineraryItem, dayIdx: number) => {
+                const currentColor = dayColors[dayIdx % dayColors.length];
 
-              return (
-                <div
-                  key={dayIdx}
-                  className={`border rounded-2xl p-5 shadow-sm transition-colors ${
-                    isDarkMode
-                      ? "bg-gray-800 border-gray-700"
-                      : "bg-white border-gray-200"
-                  }`}
-                >
+                return (
                   <div
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold inline-block mb-4"
-                    style={{
-                      backgroundColor: isDarkMode
-                        ? `${currentColor}20`
-                        : `${currentColor}10`,
-                      color: currentColor,
-                    }}
+                    key={dayIdx}
+                    className={`border rounded-2xl p-5 shadow-sm transition-colors ${
+                      isDarkMode
+                        ? "bg-gray-800 border-gray-700"
+                        : "bg-white border-gray-200"
+                    }`}
                   >
-                    DAY {dayItem.day}
-                  </div>
+                    <div
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold inline-block mb-4"
+                      style={{
+                        backgroundColor: isDarkMode
+                          ? `${currentColor}20`
+                          : `${currentColor}10`,
+                        color: currentColor,
+                      }}
+                    >
+                      DAY {dayItem.day}
+                    </div>
 
-                  {dayItem.places?.map((place: any, pIdx: number) => (
-                    <div key={pIdx} className="group">
-                      {pIdx > 0 && (
-                        <div className="flex items-center h-12 pl-1.5 relative -mt-1 mb-1">
-                          <div
-                            className="w-0.5 h-full opacity-40 absolute left-[5px] mt-3"
-                            style={{ backgroundColor: currentColor }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const startLat = Number(
-                                dayItem.places[pIdx - 1].latitude,
-                              );
-                              const startLng = Number(
-                                dayItem.places[pIdx - 1].longitude,
-                              );
-                              const destLat = Number(place.latitude);
-                              const destLng = Number(place.longitude);
-
-                              if (
-                                isNaN(startLat) ||
-                                isNaN(startLng) ||
-                                isNaN(destLat) ||
-                                isNaN(destLng)
-                              ) {
-                                return alert(
-                                  "좌표 정보가 정확하지 않아 길찾기를 열 수 없습니다.",
-                                );
-                              }
-                              openGoogleMapsDirection(
-                                startLat,
-                                startLng,
-                                destLat,
-                                destLng,
-                              );
-                            }}
-                            className="flex items-center gap-1 text-[10px] font-bold text-white px-3 py-1 rounded-full transition-transform active:scale-95 ml-6 shadow-sm"
-                            style={{ backgroundColor: currentColor }}
-                          >
-                            <Navigation size={11} className="fill-white" />
-                            구글 맵 길찾기
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="flex gap-3.5 min-h-[80px]">
-                        <div className="flex flex-col items-center flex-shrink-0 w-3">
-                          <div
-                            className="w-2.5 h-2.5 rounded-full mt-2"
-                            style={{ backgroundColor: currentColor }}
-                          />
-                          {pIdx !== dayItem.places.length - 1 && (
+                    {dayItem.places?.map((place: Place, pIdx: number) => (
+                      <div key={pIdx} className="group">
+                        {pIdx > 0 && (
+                          <div className="flex items-center h-12 pl-1.5 relative -mt-1 mb-1">
                             <div
-                              className={`w-0.5 flex-1 group-last:hidden mt-1 ${isDarkMode ? "bg-gray-700" : "bg-indigo-50"}`}
+                              className="w-0.5 h-full opacity-40 absolute left-[5px] mt-3"
+                              style={{ backgroundColor: currentColor }}
                             />
-                          )}
-                        </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const startLat = Number(
+                                  dayItem.places[pIdx - 1].latitude,
+                                );
+                                const startLng = Number(
+                                  dayItem.places[pIdx - 1].longitude,
+                                );
+                                const destLat = Number(place.latitude);
+                                const destLng = Number(place.longitude);
 
-                        <div className="flex-1 pb-4">
-                          <h4 className="text-lg font-bold mt-1">
-                            <span
-                              style={{ color: currentColor }}
-                              className="font-extrabold mr-1"
+                                if (
+                                  isNaN(startLat) ||
+                                  isNaN(startLng) ||
+                                  isNaN(destLat) ||
+                                  isNaN(destLng)
+                                ) {
+                                  return alert(
+                                    "좌표 정보가 정확하지 않아 길찾기를 열 수 없습니다.",
+                                  );
+                                }
+                                openGoogleMapsDirection(
+                                  startLat,
+                                  startLng,
+                                  destLat,
+                                  destLng,
+                                );
+                              }}
+                              className="flex items-center gap-1 text-[10px] font-bold text-white px-3 py-1 rounded-full transition-transform active:scale-95 ml-6 shadow-sm"
+                              style={{ backgroundColor: currentColor }}
                             >
-                              {dayItem.day}-{pIdx + 1}.
-                            </span>
-                            {place.place_name}
-                          </h4>
-                          <p
-                            className={`text-sm mt-1 leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-800"}`}
-                          >
-                            {place.description}
-                          </p>
+                              <Navigation size={11} className="fill-white" />
+                              구글 맵 길찾기
+                            </button>
+                          </div>
+                        )}
 
-                          {place.proposed_reason && (
+                        <div className="flex gap-3.5 min-h-[80px]">
+                          <div className="flex flex-col items-center flex-shrink-0 w-3">
                             <div
-                              className={`border rounded-xl p-3 mt-2.5 transition-colors ${
-                                isDarkMode
-                                  ? "bg-gray-900/60 border-gray-700/50"
-                                  : "bg-slate-50 border-slate-100"
-                              }`}
-                            >
-                              <div className="flex items-center gap-1 text-[12px] font-bold mb-1">
-                                <Sparkles
-                                  size={12}
-                                  style={{ color: currentColor }}
-                                />
-                                <span>AI 추천 이유</span>
-                              </div>
-                              <p
-                                className={`text-[13px] leading-normal ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                              className="w-2.5 h-2.5 rounded-full mt-2"
+                              style={{ backgroundColor: currentColor }}
+                            />
+                            {pIdx !== dayItem.places.length - 1 && (
+                              <div
+                                className={`w-0.5 flex-1 group-last:hidden mt-1 ${isDarkMode ? "bg-gray-700" : "bg-indigo-50"}`}
+                              />
+                            )}
+                          </div>
+
+                          <div className="flex-1 pb-4">
+                            <h4 className="text-lg font-bold mt-1">
+                              <span
+                                style={{ color: currentColor }}
+                                className="font-extrabold mr-1"
                               >
-                                {place.proposed_reason}
-                              </p>
-                            </div>
-                          )}
+                                {dayItem.day}-{pIdx + 1}.
+                              </span>
+                              {place.place_name}
+                            </h4>
+                            <p
+                              className={`text-sm mt-1 leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-800"}`}
+                            >
+                              {place.description}
+                            </p>
+
+                            {place.proposed_reason && (
+                              <div
+                                className={`border rounded-xl p-3 mt-2.5 transition-colors ${
+                                  isDarkMode
+                                    ? "bg-gray-900/60 border-gray-700/50"
+                                    : "bg-slate-50 border-slate-100"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1 text-[12px] font-bold mb-1">
+                                  <Sparkles
+                                    size={12}
+                                    style={{ color: currentColor }}
+                                  />
+                                  <span>AI 추천 이유</span>
+                                </div>
+                                <p
+                                  className={`text-[13px] leading-normal ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                                >
+                                  {place.proposed_reason}
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
+                    ))}
+                  </div>
+                );
+              },
+            )}
           </div>
         </div>
 
@@ -435,8 +384,8 @@ export default function GeneratedPlanPage() {
 
               <button
                 type="button"
-                onClick={handleDeletePress}
-                disabled={deletePending}
+                onClick={() => handleDeleteTrip(planData.id)}
+                disabled={deleteTripPending}
                 className={`w-full py-4 border font-semibold rounded-2xl transition-all text-md ${
                   isDarkMode
                     ? "bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-gray-300"

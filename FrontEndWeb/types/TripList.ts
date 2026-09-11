@@ -1,10 +1,13 @@
 import { ItineraryItem } from "./ItineraryItem";
 
-export interface TripDetailResponse {
-  id: number | string;
+export interface TripListElement {
+  id: number;
   location: string;
   title: string;
   overview: string;
-  custom_tips: string[];
   itinerary: ItineraryItem[];
+}
+
+export interface TripListResponse {
+  trips: TripListElement[];
 }

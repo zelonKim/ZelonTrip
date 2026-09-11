@@ -1,13 +1,12 @@
 import { DEFAULT_COORDS } from "@/constants/defaultCoords";
 import { client } from "../client";
 import { RecommendTripParams } from "@/types/RecommendTripParams";
-
-
+import { TripRecommendResponse } from "@/types/TripRecommend";
 
 export const recommendTrip = async ({
   hasHistory,
   coords,
-}: RecommendTripParams) => {
+}: RecommendTripParams): Promise<TripRecommendResponse[]> => {
   if (hasHistory) {
     const response = await client.get("/v1/trip/recommend/history");
     return response.data;

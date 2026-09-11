@@ -48,6 +48,8 @@ export default function GeneratePage() {
     }
   };
 
+  /////////////////////////////////////////////////////////////////////////////
+
   const { cachedPushToken } = useWebPush();
 
   const { mutate: NotificationMutation } = useTripNotification(cachedPushToken);
@@ -83,7 +85,8 @@ export default function GeneratePage() {
     });
   };
 
-  ////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////
+
 
   return (
     <div

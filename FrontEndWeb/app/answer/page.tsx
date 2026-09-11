@@ -4,10 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { client } from "@/api/client";
 import { useTheme } from "@/context/ThemeContext";
 import { LocationAnswerResponse } from "@/types/LocationAnswer";
 import { getLocationAnswer } from "@/api/location/getLocationAnswer";
+
 
 function AnswerContent() {
   const router = useRouter();
@@ -36,6 +36,9 @@ function AnswerContent() {
     );
   }
 
+  /////////////////////////////////////////////////////////////////////////////////////
+
+  
   return (
     <div
       className={`min-h-screen w-full pb-8 ${isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}

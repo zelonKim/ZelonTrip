@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-
   const { mutate: loginMutation, isPending } = useLogin();
 
   const handleLogin = (e: React.SubmitEvent<HTMLFormElement>) => {

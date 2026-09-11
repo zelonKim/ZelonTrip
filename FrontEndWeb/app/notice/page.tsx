@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Loader2, RotateCw, Megaphone } from "lucide-react";

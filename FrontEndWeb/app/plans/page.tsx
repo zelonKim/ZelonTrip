@@ -1,33 +1,24 @@
 "use client";
-
-import React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { MapPin, Compass, ArrowRight, CalendarDays, Inbox } from "lucide-react";
-import { client } from "@/api/client";
-import { useTheme } from "@/context/ThemeContext"; // 🎯 1. 전역 테마 훅 가져오기
+import { useTheme } from "@/context/ThemeContext";
+import { getTripList } from "@/api/trip/getTripList";
+import { TripListElement } from "@/types/TripList";
 
 export default function PlansPage() {
   const router = useRouter();
-  const { isDarkMode } = useTheme(); // 🎯 2. 다크모드 상태 구독
-
-  // 백엔드 API에서 여행 목록 조회
-  const fetchTripList = async () => {
-    const response = await client.get("/v1/trip/list");
-    return response.data;
-  };
+  const { isDarkMode } = useTheme();
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["tripList"],
-    queryFn: fetchTripList,
+    queryFn: getTripList,
   });
 
-  // 동적 라우트 주소(`/plan/[id]`)로 이동 핸들러
   const handlePlanPress = (id: string | number) => {
     router.push(`/plan/${id}`);
   };
 
-  // 1. 로딩(Pending) 상태 UI
   if (isPending) {
     return (
       <div
@@ -45,7 +36,6 @@ export default function PlansPage() {
     );
   }
 
-  // 2. 에러(Error) 상태 UI
   if (isError) {
     return (
       <div
@@ -59,7 +49,7 @@ export default function PlansPage() {
         <p
           className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
         >
-          {(error as any)?.message || "알 수 없는 에러가 발생했습니다."}
+          {error?.message || "알 수 없는 에러가 발생했습니다."}
         </p>
       </div>
     );
@@ -67,7 +57,7 @@ export default function PlansPage() {
 
   const plans = data?.trips || [];
 
-  ////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////
 
   return (
     <div
@@ -76,7 +66,6 @@ export default function PlansPage() {
       }`}
     >
       <div className="max-w-5xl mx-auto pt-10 px-4">
-        {/* 헤더 섹션 */}
         <header
           className={`mb-3 border-b pb-4 ${isDarkMode ? "border-gray-800" : "border-b-transparent"}`}
         >
@@ -88,7 +77,6 @@ export default function PlansPage() {
           </p>
         </header>
 
-        {/* 3. 데이터 결과 분기 UI */}
         {plans.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-1.5">
             <Inbox
@@ -108,7 +96,7 @@ export default function PlansPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {plans.map((plan: any) => (
+            {plans.map((plan: TripListElement) => (
               <div
                 key={plan.id}
                 onClick={() => handlePlanPress(plan.id)}
@@ -118,7 +106,6 @@ export default function PlansPage() {
                     : "bg-white border-gray-200 hover:border-blue-400"
                 }`}
               >
-                {/* 카드 상단 정보 */}
                 <div className="flex items-center justify-between mb-3">
                   <div
                     className={`flex items-center gap-1 px-2.5 py-1 rounded-lg ${
@@ -146,7 +133,6 @@ export default function PlansPage() {
                   </div>
                 </div>
 
-                {/* 카드 제목 */}
                 <h2
                   className={`text-lg font-bold mb-2.5 pl-1.5 line-clamp-2 leading-snug ${
                     isDarkMode ? "text-gray-100" : "text-gray-800"
@@ -155,7 +141,6 @@ export default function PlansPage() {
                   {plan.title}
                 </h2>
 
-                {/* 개요(Overview) 박스 */}
                 <div
                   className={`flex items-start rounded-xl p-3 mb-3.5 transition-colors ${
                     isDarkMode ? "bg-gray-900/60" : "bg-gray-50"
@@ -174,7 +159,6 @@ export default function PlansPage() {
                   </p>
                 </div>
 
-                {/* 푸터 버튼 */}
                 <div
                   className={`flex items-center justify-end gap-1 ${
                     isDarkMode

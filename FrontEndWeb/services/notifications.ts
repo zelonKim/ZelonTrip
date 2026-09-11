@@ -1,6 +1,5 @@
-// src/services/notifications.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { getMessaging, getToken } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBatCTtVHm5t3arjCOK0Q9JLUcOiXIce_g",

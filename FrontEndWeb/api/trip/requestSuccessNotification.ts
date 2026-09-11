@@ -1,5 +1,6 @@
 import { client } from "../client";
 import { SendNotificationPayload } from "../../types/SendNotification";
+import { isAxiosError } from "axios";
 
 export const requestSuccessNotification = async ({
   pushToken,
@@ -18,21 +19,23 @@ export const requestSuccessNotification = async ({
         message: "AI가 생성한 여행 플랜을 보완할 수도 있어요.",
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.log("=== 푸시 알림 요청 실패 상세 로그 ===");
-    if (err.response) {
-      console.log("상태 코드:", err.response.status);
-      console.log(
-        "서버 상세 에러",
-        JSON.stringify(err.response.data, null, 2),
-      );
-    } else if (err.request) {
-      console.log("요청 전송 성공했으나 응답 없음:", err.request);
-    } else {
-      console.log("에러 메시지:", err.message);
+    if (isAxiosError(err)) {
+      if (err.response) {
+        console.log("상태 코드:", err.response.status);
+        console.log(
+          "서버 상세 에러",
+          JSON.stringify(err.response.data, null, 2),
+        );
+      } else if (err.request) {
+        console.log("요청 전송 성공했으나 응답 없음:", err.request);
+      } else {
+        console.log("에러 메시지:", err.message);
+      }
+      console.log("전체 에러 오브젝트:", err.config);
+      console.log("=======================================");
+      throw err;
     }
-    console.log("전체 에러 오브젝트:", err.config);
-    console.log("=======================================");
-    throw err;
   }
 };

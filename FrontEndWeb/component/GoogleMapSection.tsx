@@ -1,125 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   APIProvider,
   Map,
   AdvancedMarker,
-  Polyline,
   InfoWindow,
-  useMap,
-  useMapsLibrary,
 } from "@vis.gl/react-google-maps";
-
-interface Place {
-  place_name: string;
-  latitude: string | number;
-  longitude: string | number;
-  description?: string;
-  address?: string;
-}
-
-interface ItineraryItem {
-  day: number | string;
-  places: Place[];
-}
-
-
-
-function SingleDayDirections({
-  places,
-  color,
-}: {
-  places: Place[];
-  color: string;
-}) {
-  const map = useMap();
-  const routesLibrary = useMapsLibrary("routes");
-  const [routePath, setRoutePath] = useState([]);
-
-  useEffect(() => {
-    if (!map || !places || places.length < 2 || !routesLibrary) return;
-
-    const directionsService = new routesLibrary.DirectionsService();
-
-    const origin = {
-      lat: Number(places[0].latitude),
-      lng: Number(places[0].longitude),
-    };
-    const destination = {
-      lat: Number(places[places.length - 1].latitude),
-      lng: Number(places[places.length - 1].longitude),
-    };
-    const waypoints = places.slice(1, -1).map((p) => ({
-      location: { lat: Number(p.latitude), lng: Number(p.longitude) },
-      stopover: true,
-    }));
-
-    directionsService.route(
-      {
-        origin,
-        destination,
-        waypoints,
-        travelMode: "DRIVING",
-        optimizeWaypoints: true,
-      },
-      (result, status) => {
-        // 🎯 [보완] status가 OK여도 result.routes 구조가 완벽히 존재하는지 한 번 더 이중 검증합니다.
-        if (status === "OK" && result && result.routes && result.routes[0]) {
-          try {
-            const legs = result.routes[0].legs || [];
-            const legPaths = legs.flatMap((leg: any) => {
-              const steps = leg.steps || [];
-              return steps.flatMap((step: any) => {
-                // step.path가 없거나 비어있을 경우를 대비해 안전하게 방어합니다.
-                const pathArray =
-                  typeof step.path?.getArray === "function"
-                    ? step.path.getArray()
-                    : step.path || [];
-
-                return pathArray.map((p: any) => ({
-                  lat: typeof p.lat === "function" ? p.lat() : p.lat,
-                  lng: typeof p.lng === "function" ? p.lng() : p.lng,
-                }));
-              });
-            });
-
-            setRoutePath(legPaths);
-          } catch (e) {
-            // 🎯 만약 데이터를 뜯어내다 예상치 못한 에러가 나면, 크래시를 내지 않고 직선 좌표로 안전하게 후퇴합니다.
-            console.error("경로 데이터 가공 중 에러 발생, 직선으로 대체:", e);
-            setRoutePath(
-              places.map((p) => ({
-                lat: Number(p.latitude),
-                lng: Number(p.longitude),
-              })),
-            );
-          }
-        } else {
-          // 구글 맵 통신 실패(예: 키 차단) 시 안전하게 마커 간 직선 연결로 대체하여 화면 붕괴 방지
-          setRoutePath(
-            places.map((p) => ({
-              lat: Number(p.latitude),
-              lng: Number(p.longitude),
-            })),
-          );
-        }
-      },
-    );
-  }, [map, places, routesLibrary]);
-
-  if (routePath.length === 0) return null;
-  return (
-    <Polyline
-      path={routePath}
-      strokeColor={color}
-      strokeOpacity={0.85}
-      strokeWeight={5}
-    />
-  );
-}
-
-
+import { dayColors } from "@/constants/daysColors";
+import { ItineraryItem } from "@/types/ItineraryItem";
+import { SingleDayDirections } from "@/component/SingleDayDirections";
 
 export default function GoogleMapSection({
   itinerary,
@@ -148,7 +38,6 @@ export default function GoogleMapSection({
           disableDefaultUI={true}
           mapId="DEMO_MAP_ID"
         >
-          {/* 일차별 도로 동선 */}
           {itinerary.map((dayItem, dayIdx) => {
             const currentColor = dayColors[dayIdx % dayColors.length];
             return (
@@ -160,7 +49,6 @@ export default function GoogleMapSection({
             );
           })}
 
-          {/* 일차별 마커 및 인포윈도우 툴팁 */}
           {itinerary.map((dayItem, dayIdx) => {
             const currentColor = dayColors[dayIdx % dayColors.length];
 
@@ -172,7 +60,7 @@ export default function GoogleMapSection({
               if (isNaN(lat) || isNaN(lng)) return null;
 
               return (
-                <React.Fragment key={`group-${markerId}`}>
+                <div key={`group-${markerId}`}>
                   <AdvancedMarker
                     position={{ lat, lng }}
                     onClick={() => setOpenWindowId(markerId)}
@@ -212,20 +100,20 @@ export default function GoogleMapSection({
                           >
                             {dayItem.day}-{pIdx + 1}
                           </span>
-                          <h4 className="text-xs font-bold text-gray-900 truncate">
+                          <h4 className="text-sm font-bold text-gray-900 truncate">
                             {place.place_name}
                           </h4>
                         </div>
 
                         {place.address && (
-                          <p className="text-[10px] text-gray-600 leading-normal font-medium break-all whitespace-pre-wrap mt-0.5 pr-2">
+                          <p className="text-xs text-gray-600 leading-normal font-medium break-all whitespace-pre-wrap mt-0.5 pr-2">
                             {place.address}
                           </p>
                         )}
                       </div>
                     </InfoWindow>
                   )}
-                </React.Fragment>
+                </div>
               );
             });
           })}

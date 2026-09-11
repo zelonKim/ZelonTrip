@@ -7,6 +7,8 @@ import { messaging } from "@/services/notifications";
 import { onMessage } from "firebase/messaging";
 import { useTheme } from "@/context/ThemeContext";
 import { NotificationItem } from "@/types/NotificationItem";
+import { clearAllNotifications } from "@/utils/clearAllNotifications";
+import { deleteNotification } from "@/utils/deleteNotification";
 
 export default function NotificationScreen() {
   const router = useRouter();
@@ -27,23 +29,6 @@ export default function NotificationScreen() {
       }
     }
   }, []);
-
-  const deleteNotification = (e: React.MouseEvent, id: string | number) => {
-    e.stopPropagation();
-    const updatedList = notifications.filter((item) => item.id !== id);
-    setNotifications(updatedList);
-    localStorage.setItem(
-      "zelontrip_notifications",
-      JSON.stringify(updatedList),
-    );
-  };
-
-  const clearAllNotifications = () => {
-    if (window.confirm("모든 알림을 삭제하시겠습니까?")) {
-      setNotifications([]);
-      localStorage.removeItem("zelontrip_notifications");
-    }
-  };
 
   useEffect(() => {
     if (messaging) {
@@ -73,7 +58,6 @@ export default function NotificationScreen() {
 
   ////////////////////////////////////////////////////////////////////
 
-  
   return (
     <div
       className={`min-h-screen pb-12 transition-colors duration-200 ${
@@ -104,7 +88,7 @@ export default function NotificationScreen() {
 
           {notifications.length > 0 ? (
             <button
-              onClick={clearAllNotifications}
+              onClick={() => clearAllNotifications(setNotifications)}
               className="text-xs font-semibold text-red-500 hover:text-red-600 transition-colors"
             >
               전체 삭제
@@ -168,7 +152,14 @@ export default function NotificationScreen() {
                     </div>
 
                     <button
-                      onClick={(e) => deleteNotification(e, item.id)}
+                      onClick={(e) =>
+                        deleteNotification(
+                          e,
+                          item.id,
+                          notifications,
+                          setNotifications,
+                        )
+                      }
                       className={`p-1 rounded-md transition-colors ${
                         isDarkMode
                           ? "text-gray-500 hover:text-red-400 hover:bg-gray-700"

@@ -5,7 +5,7 @@ export const regenerateTrip = async ({
   tripId,
   feedback,
 }: {
-  tripId: string;
+  tripId: string | string[] | number;
   feedback: string;
 }): Promise<RegenerateTripResponse> => {
   const res = await client.post(`/v1/trip/${tripId}/regenerate`, {

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { deleteTrip } from "@/api/trip/deleteTrip";
 
 export const useDeleteTrip = () => {
@@ -11,7 +11,7 @@ export const useDeleteTrip = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tripList"] });
       alert("여행 일정이 성공적으로 삭제되었습니다.");
-      router.replace("/(tabs)/plans");
+      router.replace("/plans");
     },
     onError: () => {
       alert("삭제 중 오류가 발생했습니다.");

@@ -1,13 +1,8 @@
 "use client";
+import { ThemeContextType } from "@/types/ThemeContextType";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-interface ThemeContextType {
-  isDarkMode: boolean;
-  toggleDarkMode: () => void;
-}
-
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -15,7 +10,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedTheme = localStorage.getItem("zelontrip_theme");
     const isDark = savedTheme === "dark";
-
+    // eslint-disable-next-line
     setIsDarkMode(isDark);
 
     if (isDark) {
@@ -24,7 +19,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.remove("dark");
     }
   }, []);
-
 
   const toggleDarkMode = () => {
     const nextMode = !isDarkMode;
@@ -46,6 +40,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/////////////////////////////////////////////////////////////////////
 
 export function useTheme() {
   const context = useContext(ThemeContext);

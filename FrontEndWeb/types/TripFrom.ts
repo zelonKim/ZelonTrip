@@ -1,7 +1,9 @@
+import { MBTI } from "@/constants/options";
+
 export interface TripFormData {
   location: string;
   days: number;
-  mbti: string;
+  mbti: MBTI;
   tripStyle: string;
   tendency: string;
   asking: string;

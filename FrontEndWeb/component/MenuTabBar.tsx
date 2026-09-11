@@ -4,11 +4,11 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, CircleUser, CalendarSearch, Bot } from "lucide-react";
-import { useTheme } from "@/context/ThemeContext"; // 🎯 1. 전역 다크모드 훅 가져오기
+import { useTheme } from "@/context/ThemeContext"; 
 
 export default function MenuTabBar() {
   const pathname = usePathname();
-  const { isDarkMode } = useTheme(); // 🎯 2. 다크모드 상태 구독
+  const { isDarkMode } = useTheme(); 
 
   const navItems = [
     {
@@ -41,12 +41,14 @@ export default function MenuTabBar() {
     },
   ];
 
-  // 상세 페이지나 AI 답변 등 하단 탭바를 숨겨야 하는 웹 주소 예외 처리
+
   const hiddenPaths = ["/plan/", "/answer", "/notice", "/login", "/signup"];
   const shouldHide = hiddenPaths.some((path) => pathname.startsWith(path));
 
   if (shouldHide) return null;
 
+  //////////////////////////////////////////////////////////////////////
+  
   return (
     <nav
       className={`fixed bottom-0 left-0 right-0 z-40 border-t xl:px-12 flex justify-around items-center h-16 safe-bottom transition-colors duration-200 mx-auto ${
@@ -70,7 +72,7 @@ export default function MenuTabBar() {
               strokeWidth={item.strokeWidth(isActive)}
               className={
                 isActive
-                  ? "text-blue-500" // 💡 다크모드 가독성을 고려해 라이트 블루 톤으로 유연하게 가도 좋습니다.
+                  ? "text-blue-500" 
                   : isDarkMode
                     ? "text-gray-500"
                     : "text-gray-400"
