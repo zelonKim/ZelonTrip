@@ -1,7 +1,6 @@
 # ZelonTrip - FrontEnd App
 
-React Native 및 Expo 기반의 ZelonTrip 모바일 애플리케이션 프론트엔드 
-FastAPI 백엔드와 연동하여 AI 맞춤형 여행 일정 추천 및 위치 기반 서비스를 제공함.
+React Native 및 Expo 기반의 ZelonTrip 모바일 애플리케이션 프론트엔드로서, AI 맞춤형 여행 일정 추천 및 위치 기반 서비스를 제공함.
 
 
 ---
