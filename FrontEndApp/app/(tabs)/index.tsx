@@ -30,6 +30,8 @@ import { useUserLocation } from "@/hooks/useUserLocation";
 import { recommendTrip } from "@/api/trip/recommendTrip";
 import { openGoogleMap } from "@/utils/openGoogleMap";
 import { checkBadgeStatus } from "@/utils/checkBadgeStatus";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserTripStats } from "@/hooks/useUserTripStats";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -85,25 +87,13 @@ export default function HomeScreen() {
 
   //////////////////////////////////////////////////////////////////////////
 
-  const { data: userData, isPending: isUserPending } = useQuery({
-    queryKey: ["currentUserProfile"],
-    queryFn: async () => {
-      const response = await client.get("/v1/auth/me");
-      return response.data;
-    },
-  });
+  const { data: profileData, isPending: isProfilePending } = useUserProfile();
 
-  const { data: statsData, isPending: isStatsPending } = useQuery({
-    queryKey: ["userTripStats"],
-    queryFn: async () => {
-      const response = await client.get("/v1/user/stats");
-      return response.data;
-    },
-  });
+  const { data: statsData, isPending: isStatsPending } = useUserTripStats();
+
+  const hasHistory = (statsData?.total_location ?? 0) > 0;
 
   ///////////////////////////////////////////////////////////////////////
-
-  const hasHistory = statsData && statsData.total_location > 0;
 
   const {
     data: recommendedPlans,
@@ -186,7 +176,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.welcomeSection}>
-        {isUserPending ? (
+        {isProfilePending ? (
           <ActivityIndicator
             size="small"
             color="#2563EB"
@@ -194,9 +184,9 @@ export default function HomeScreen() {
           />
         ) : (
           <Text style={[styles.userName, theme.textSub]}>
-            {userData?.nickname
-              ? `${userData.nickname}님,`
-              : `${userData?.username?.split("@")[0]}님,`}
+            {profileData?.nickname
+              ? `${profileData.nickname}님,`
+              : `${profileData?.username?.split("@")[0]}님,`}
           </Text>
         )}
         <Text style={[styles.welcomeTitle, theme.textMain]}>
@@ -266,11 +256,11 @@ export default function HomeScreen() {
         {isRecommendPending || isStatsPending || isRecommendRefetching ? (
           <View style={styles.loadingWrapper}>
             <ActivityIndicator size="large" color="#2563EB" />
-            {userData && (
+            {profileData && (
               <Text style={[styles.loadingText, theme.textSub]}>
-                {userData.nickname
-                  ? `${userData.nickname}`
-                  : `${userData.username?.split("@")[0]}`}
+                {profileData.nickname
+                  ? `${profileData.nickname}`
+                  : `${profileData.username?.split("@")[0]}`}
                 님을 위한 맞춤 여행지 분석중...
               </Text>
             )}

@@ -265,6 +265,8 @@ class AIRecommendationList(BaseModel):
     recommendations: List[AIRecommendedItem]
 
 
+
+
 # 여행지 추천 응답 스키마
 class TripRecommendResponse(BaseModel):
     id: int

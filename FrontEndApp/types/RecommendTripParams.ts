@@ -1,4 +1,4 @@
 export interface RecommendTripParams {
-  hasHistory: boolean;
+  hasHistory: boolean | null;
   coords?: { latitude: number; longitude: number } | null;
 }
