@@ -1,4 +1,4 @@
-# ZelonTrip - BackEnd API Server
+# 💻 ZelonTrip - BackEnd API Server
 
 ZelonTrip의 AI 연동을 담당하는 FastAPI 기반의 백엔드 서버
 

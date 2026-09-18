@@ -1,4 +1,4 @@
-# ZelonTrip - FrontEnd Web
+# 🌐 ZelonTrip - FrontEnd Web
 
 ZelonTrip의 웹 애플리케이션 프론트엔드
 Next.js App Router를 기반으로, 반응형 UI를 제공함.

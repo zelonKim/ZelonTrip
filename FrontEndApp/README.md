@@ -1,10 +1,8 @@
-# ZelonTrip - FrontEnd App
+# 📱 ZelonTrip - FrontEnd Mobile App
 
 React Native 및 Expo 기반의 ZelonTrip 모바일 애플리케이션 프론트엔드로서, AI 맞춤형 여행 일정 추천 및 위치 기반 서비스를 제공함.
 
-
 ---
-
 
 ## 🛠 Tech Stack
 
@@ -15,10 +13,7 @@ React Native 및 Expo 기반의 ZelonTrip 모바일 애플리케이션 프론트
 - **Notification**: Firebase Cloud Messaging (FCM), Expo Notifications
 - **Storage & Native APIs**: Expo SecureStore, Google Maps API, Expo Location
 
-
 ---
-
-
 
 ## 📂 Project Architecture & Key Directories
 
@@ -54,9 +49,7 @@ React Native 및 Expo 기반의 ZelonTrip 모바일 애플리케이션 프론트
   - 순수 유틸리티 및 헬퍼 함수 모음 
   - FCM 푸시 알림 제어, 좌표 계산, 토큰 암호화 저장 등을 수행함.
 
-
 ---
-
 
 ## 🚀 Getting Started
 
