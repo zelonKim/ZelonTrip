@@ -87,11 +87,10 @@ export default function GeneratePage() {
 
   /////////////////////////////////////////////////////////////////////////////
 
-
   return (
     <div
       className={`min-h-screen pb-10 transition-colors duration-200 ${
-        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
+        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-sky-50 text-gray-900"
       }`}
     >
       <form
@@ -473,7 +472,7 @@ export default function GeneratePage() {
         <button
           type="submit"
           disabled={isPending}
-          className={`w-full py-4 rounded-2xl font-semibold text-white text-base shadow-md flex items-center justify-center gap-2 transition-all ${
+          className={`cursor-pointer w-full py-4 rounded-2xl font-semibold text-white text-base shadow-md flex items-center justify-center gap-2 transition-all ${
             isPending
               ? "bg-gray-400 cursor-not-allowed"
               : isDarkMode

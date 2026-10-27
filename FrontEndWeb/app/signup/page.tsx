@@ -39,7 +39,7 @@ export default function SignupPage() {
   return (
     <div
       className={`flex min-h-screen items-center justify-center p-6 transition-colors duration-200 ${
-        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-white text-gray-900"
+        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-sky-50 text-gray-900"
       }`}
     >
       <div className="w-full max-w-md space-y-8">
@@ -144,7 +144,7 @@ export default function SignupPage() {
           이미 계정이 있으신가요?{" "}
           <button
             onClick={() => router.push("/login")}
-            className="text-blue-500 font-semibold hover:underline hover:font-bold"
+            className="cursor-pointer text-blue-500 font-semibold hover:underline hover:font-bold"
           >
             로그인
           </button>

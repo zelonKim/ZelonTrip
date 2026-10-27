@@ -108,7 +108,7 @@ export default function HomeContent() {
   return (
     <div
       className={`max-w-6xl mx-auto min-h-screen pb-16 transition-colors duration-200 ${
-        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
+        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-sky-50 text-gray-900"
       }`}
     >
       <div className="mx-auto px-5">
@@ -148,10 +148,10 @@ export default function HomeContent() {
               setHasNewNotification(false);
               router.push("/notification");
             }}
-            className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+            className={`cursor-pointer relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
               isDarkMode
                 ? "bg-gray-800 hover:bg-gray-700 text-gray-200"
-                : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                : "bg-blue-200 hover:bg-blue-300 text-gray-800"
             }`}
           >
             <Bell size={24} />
@@ -332,7 +332,7 @@ export default function HomeContent() {
 
         <button
           onClick={() => handleOpenGoogleMap(coords)}
-          className={`w-full text-white rounded-2xl p-6 flex justify-between items-center text-left transition-all shadow-lg ${"bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"}`}
+          className={`w-full cursor-pointer text-white rounded-2xl p-6 flex justify-between items-center text-left transition-all shadow-lg ${"bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"}`}
         >
           <div>
             <span className="text-sm text-white/80 block mb-1">

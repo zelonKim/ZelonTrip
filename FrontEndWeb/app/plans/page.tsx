@@ -23,7 +23,7 @@ export default function PlansPage() {
     return (
       <div
         className={`min-h-screen flex flex-col items-center justify-center p-5 gap-3 transition-colors duration-200 ${
-          isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
+          isDarkMode ? "bg-gray-900 text-gray-100" : "bg-sky-50 text-gray-900"
         }`}
       >
         <div className="w-9 h-9 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -40,7 +40,7 @@ export default function PlansPage() {
     return (
       <div
         className={`min-h-screen flex flex-col items-center justify-center p-5 text-center transition-colors duration-200 ${
-          isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
+          isDarkMode ? "bg-gray-900 text-gray-100" : "bg-sky-50 text-gray-900"
         }`}
       >
         <h2 className="text-base font-bold text-red-500 mb-1">
@@ -62,7 +62,7 @@ export default function PlansPage() {
   return (
     <div
       className={`min-h-screen pb-10 transition-colors duration-200 ${
-        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"
+        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-sky-50 text-gray-900"
       }`}
     >
       <div className="max-w-5xl mx-auto pt-10 px-4">

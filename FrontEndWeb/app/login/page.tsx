@@ -28,14 +28,14 @@ export default function LoginPage() {
 
   return (
     <div
-      className={`relative min-h-screen w-full flex flex-col justify-center items-center px-6 py-12 transition-colors duration-300 ${
-        isDarkMode ? "bg-gray-900" : "bg-white"
+      className={` relative min-h-screen w-full flex flex-col justify-center items-center px-6 py-12 transition-colors duration-300 ${
+        isDarkMode ? "bg-gray-900" : "bg-sky-50"
       }`}
     >
       <button
         type="button"
         onClick={() => setIsModalOpen(true)}
-        className={`absolute top-6 right-6 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border active:scale-[0.98] ${
+        className={`cursor-pointer absolute top-6 right-6 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border active:scale-[0.98] ${
           isDarkMode
             ? "bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700 shadow-black/20"
             : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 shadow-gray-100"
@@ -108,7 +108,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isPending}
-            className={`w-full h-14 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] ${
+            className={`cursor-pointer w-full h-14 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] ${
               isPending
                 ? isDarkMode
                   ? "bg-gray-700 cursor-not-allowed shadow-none"

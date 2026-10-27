@@ -31,7 +31,7 @@ export const AppDownloadModal = ({
         <button
           type="button"
           onClick={onClose}
-          className={`absolute top-4 right-4 p-1.5 rounded-full border transition-all ${
+          className={`cursor-pointer absolute top-4 right-4 p-1.5 rounded-full border transition-all ${
             isDarkMode
               ? "border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
               : "border-gray-100 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
@@ -66,7 +66,7 @@ export const AppDownloadModal = ({
                 ? isDarkMode
                   ? "bg-gray-800 text-white shadow-md"
                   : "bg-white text-gray-900 shadow-xs"
-                : "text-gray-400 hover:text-gray-500"
+                : "cursor-pointer text-gray-400 hover:text-gray-500"
             }`}
           >
             Android
@@ -79,7 +79,7 @@ export const AppDownloadModal = ({
                 ? isDarkMode
                   ? "bg-gray-800 text-white shadow-md"
                   : "bg-white text-gray-900 shadow-xs"
-                : "text-gray-400 hover:text-gray-500"
+                : "cursor-pointer text-gray-400 hover:text-gray-500"
             }`}
           >
             iOS (iPhone)
@@ -95,7 +95,7 @@ export const AppDownloadModal = ({
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mt-5 transition-all active:scale-[0.99]"
+          className="cursor-pointer w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mt-5 transition-all active:scale-[0.99]"
         >
           확인
         </button>
