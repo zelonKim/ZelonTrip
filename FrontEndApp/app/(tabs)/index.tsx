@@ -23,7 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/api/client";
 import { useRouter } from "expo-router";
 import * as Notifications from "expo-notifications";
-import { useAppTheme } from "../_layout";
+
 import { LocationAskModal } from "@/components/modals/LocationAskModal";
 import { saveNotificationToStorage } from "@/utils/saveNotificationToStorage";
 import { useUserLocation } from "@/hooks/useUserLocation";
@@ -32,6 +32,7 @@ import { openGoogleMap } from "@/utils/openGoogleMap";
 import { checkBadgeStatus } from "@/utils/checkBadgeStatus";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useUserTripStats } from "@/hooks/useUserTripStats";
+import { useAppTheme } from "@/utils/ThemeContext";
 
 export default function HomeScreen() {
   const router = useRouter();

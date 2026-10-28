@@ -15,6 +15,7 @@ import { ChevronLeft } from "lucide-react-native";
 import { useAppTheme } from "@/utils/ThemeContext";
 import { getNotices } from "@/api/notice/getNotices";
 import { RenderNoticeItem } from "@/components/RenderNoticeItem";
+import { Notice } from "@/types/Notice";
 
 export default function NoticePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);

@@ -6,5 +6,3 @@ export const ThemeContext = createContext<{
 }>({ isDarkMode: false, toggleDarkMode: async () => {} });
 
 export const useAppTheme = () => useContext(ThemeContext);
-
-const THEME_CONFIG_PATH = `${FileSystem.documentDirectory}theme_config.json`;

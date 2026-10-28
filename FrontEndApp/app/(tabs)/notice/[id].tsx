@@ -10,9 +10,10 @@ import { useLocalSearchParams, router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Calendar, ChevronLeft } from "lucide-react-native";
-import { useAppTheme } from "../../_layout";
+
 import { getNoticeDetail } from "@/api/notice/getNoticeDetail";
 import { NoticeDetail } from "@/types/NoticeDetail";
+import { useAppTheme } from "@/utils/ThemeContext";
 
 export default function NoticeDetailScreen() {
   const insets = useSafeAreaInsets();

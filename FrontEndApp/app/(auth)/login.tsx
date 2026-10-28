@@ -12,9 +12,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useAppTheme, useAuth } from "../_layout";
 import { useLogin } from "@/hooks/useLogin";
-
+import { useAppTheme } from "../../utils/ThemeContext";
+import { useAuth } from "@/utils/AuthContext";
 
 export default function LoginScreen() {
   const router = useRouter();

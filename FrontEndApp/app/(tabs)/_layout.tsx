@@ -1,8 +1,8 @@
 import { Tabs } from "expo-router";
 import { Home, CircleUser, CalendarSearch, Bot } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "../_layout";
 import { Platform } from "react-native";
+import { useAppTheme } from "@/utils/ThemeContext";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();

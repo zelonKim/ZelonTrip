@@ -24,7 +24,7 @@ import {
 } from "lucide-react-native";
 import Slider from "@react-native-community/slider";
 import { router } from "expo-router";
-import { useAppTheme } from "../_layout";
+
 import {
   Companion,
   COMPANION_OPTIONS,
@@ -38,6 +38,7 @@ import { TripGenerateResponse } from "@/types/TripGenerate";
 import { useGenerateTrip } from "@/hooks/useGenerateTrip";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { requestSuccessNotification } from "@/api/trip/requestSuccessNotification";
+import { useAppTheme } from "@/utils/ThemeContext";
 
 export default function GenerateScreen() {
   const insets = useSafeAreaInsets();

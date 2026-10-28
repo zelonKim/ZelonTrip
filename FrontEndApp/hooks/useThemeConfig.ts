@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 const THEME_CONFIG_PATH = `${FileSystem.documentDirectory}theme_config.json`;
 
@@ -24,7 +24,7 @@ export const useThemeConfig = () => {
     try {
       await FileSystem.writeAsStringAsync(
         THEME_CONFIG_PATH,
-        JSON.stringify({ darkMode: value })
+        JSON.stringify({ darkMode: value }),
       );
     } catch (e) {
       console.log("전역 테마 저장 실패:", e);

@@ -26,12 +26,13 @@ import {
   Navigation,
 } from "lucide-react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import { useAppTheme } from "../../_layout";
+
 import { getTripDetail } from "@/api/trip/getTripDetail";
 import { dayColors } from "@/constants/daysColors";
 import { openGoogleMapsDirection } from "@/utils/openGoogleMapsDirection";
 import { useDeleteTrip } from "@/hooks/useDeleteTrip";
 import { useRegenerateTrip } from "@/hooks/useRegenerateTrip";
+import { useAppTheme } from "@/utils/ThemeContext";
 
 export default function GeneratedPlanScreen() {
   const router = useRouter();
