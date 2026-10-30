@@ -4,36 +4,38 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, CircleUser, CalendarSearch, Bot } from "lucide-react";
-import { useTheme } from "@/context/ThemeContext"; 
+import { useTheme } from "@/context/ThemeContext";
+import { useMenuTabBarLanguage } from "@/hooks/languages/useMenuTabBarLanguage";
 
 export default function MenuTabBar() {
   const pathname = usePathname();
-  const { isDarkMode } = useTheme(); 
+  const { isDarkMode } = useTheme();
+  const { t } = useMenuTabBarLanguage();
 
   const navItems = [
     {
-      name: "홈",
+      name: t.home,
       href: "/",
       icon: Home,
       size: 25,
       strokeWidth: (active: boolean) => (active ? 2.5 : 2),
     },
     {
-      name: "여행 생성",
+      name: t.generate,
       href: "/generate",
       icon: Bot,
       size: 30,
       strokeWidth: (active: boolean) => (active ? 2.3 : 2),
     },
     {
-      name: "일정 조회",
+      name: t.plans,
       href: "/plans",
       icon: CalendarSearch,
       size: 25,
       strokeWidth: (active: boolean) => (active ? 2.5 : 2),
     },
     {
-      name: "마이페이지",
+      name: t.mypage,
       href: "/mypage",
       icon: CircleUser,
       size: 25,
@@ -41,14 +43,11 @@ export default function MenuTabBar() {
     },
   ];
 
-
   const hiddenPaths = ["/plan/", "/answer", "/notice", "/login", "/signup"];
   const shouldHide = hiddenPaths.some((path) => pathname.startsWith(path));
 
   if (shouldHide) return null;
 
-  //////////////////////////////////////////////////////////////////////
-  
   return (
     <nav
       className={`fixed bottom-0 left-0 right-0 z-40 border-t xl:px-12 flex justify-around items-center h-16 safe-bottom transition-colors duration-200 mx-auto ${
@@ -65,27 +64,27 @@ export default function MenuTabBar() {
           <Link
             key={item.href}
             href={item.href}
-            className="flex flex-col items-center justify-center flex-1 h-full cursor-pointer transition-colors"
+            className="group flex flex-col items-center justify-center flex-1 h-full cursor-pointer transition-colors"
           >
             <Icon
               size={item.size}
               strokeWidth={item.strokeWidth(isActive)}
               className={
                 isActive
-                  ? "text-blue-500" 
+                  ? "text-blue-500"
                   : isDarkMode
-                    ? "text-gray-500"
-                    : "text-gray-400"
+                    ? "text-gray-500 group-hover:text-gray-400 duration-100"
+                    : "text-gray-400 group-hover:text-gray-500 duration-100"
               }
             />
 
             <span
-              className={`text-[10px] mt-0.5 ${
+              className={`text-[10.5px] mt-0.5 font-semibold ${
                 isActive
-                  ? "font-semibold text-blue-500"
+                  ? "font-bold text-blue-500"
                   : isDarkMode
-                    ? "text-gray-400"
-                    : "text-gray-500"
+                    ? "text-gray-500 group-hover:text-gray-400 duration-100"
+                    : "text-gray-400 group-hover:text-gray-500 duration-100"
               }`}
             >
               {item.name}

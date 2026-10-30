@@ -15,19 +15,28 @@ import {
 import { useTheme } from "@/context/ThemeContext";
 import {
   COMPANION,
+  COMPANION_LABELS,
   COMPANION_OPTIONS,
   MBTI,
   MBTI_OPTIONS,
   TRANSPORT,
+  TRANSPORT_LABELS,
   TRANSPORT_OPTIONS,
 } from "@/constants/options";
-import { TENDENCY_TAGS, TRIP_STYLE_TAGS } from "@/constants/tags";
+import {
+  TENDENCY_TAGS,
+  TENDENCY_TRANSLATIONS,
+  TRIP_STYLE_TAGS,
+  TRIP_STYLE_TRANSLATIONS,
+} from "@/constants/tags";
 import { useWebPush } from "@/hooks/useWebPush";
 import { useTripNotification } from "@/hooks/useSendNotification";
 import { useGenerateTrip } from "@/hooks/useGenerateTrip";
+import { useGenerateLanguage } from "@/hooks/languages/useGenerateLanguage";
 
 export default function GeneratePage() {
   const { isDarkMode } = useTheme();
+  const { t, locale } = useGenerateLanguage();
 
   const [location, setLocation] = useState("");
   const [days, setDays] = useState<number>(1);
@@ -48,13 +57,8 @@ export default function GeneratePage() {
     }
   };
 
-  /////////////////////////////////////////////////////////////////////////////
-
   const { cachedPushToken } = useWebPush();
-
   const { mutate: NotificationMutation } = useTripNotification(cachedPushToken);
-
-  /////////////////////////////////////////////////////////////////////////////
 
   const { mutate: tripGenerateMutation, isPending } = useGenerateTrip({
     onSuccess: (res) => {
@@ -65,12 +69,12 @@ export default function GeneratePage() {
 
   const handleGenerate = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!location.trim()) return alert("여행지를 입력해 주세요.");
-    if (!mbti) return alert("MBTI를 선택해 주세요.");
-    if (!tripStyle) return alert("여행 스타일을 선택해 주세요.");
-    if (!tendency) return alert("식당 성향을 선택해 주세요.");
-    if (!companion) return alert("누구와 함께하는지 선택해 주세요.");
-    if (!transportation) return alert("주요 이동 수단을 선택해 주세요.");
+    if (!location.trim()) return alert(t.alertLocation);
+    if (!mbti) return alert(t.alertMbti);
+    if (!tripStyle) return alert(t.alertTripStyle);
+    if (!tendency) return alert(t.alertTendency);
+    if (!companion) return alert(t.alertCompanion);
+    if (!transportation) return alert(t.alertTransport);
 
     tripGenerateMutation({
       location,
@@ -85,8 +89,6 @@ export default function GeneratePage() {
     });
   };
 
-  /////////////////////////////////////////////////////////////////////////////
-
   return (
     <div
       className={`min-h-screen pb-10 transition-colors duration-200 ${
@@ -98,13 +100,17 @@ export default function GeneratePage() {
         className="max-w-4xl mx-auto px-4 pt-10 space-y-4"
       >
         <header
-          className={`mb-6 border-b pb-4 ${isDarkMode ? "border-gray-800" : "border-transparent"}`}
+          className={`mb-6 border-b pb-4 ${
+            isDarkMode ? "border-gray-800" : "border-transparent"
+          }`}
         >
-          <h1 className="text-2xl font-bold mb-1.5">AI 맞춤 여행 생성 ✨</h1>
+          <h1 className="text-2xl font-bold mb-1.5">{t.headerTitle}</h1>
           <p
-            className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-500"
+            }`}
           >
-            취향 태그를 고르고 특별한 요청사항을 입력해 보세요.
+            {t.headerDesc}
           </p>
         </header>
 
@@ -121,9 +127,11 @@ export default function GeneratePage() {
               className={isDarkMode ? "text-blue-400" : "text-blue-600"}
             />
             <label
-              className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+              className={`text-sm font-semibold ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              여행지
+              {t.locationLabel}
             </label>
           </div>
           <input
@@ -133,7 +141,7 @@ export default function GeneratePage() {
                 ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
                 : "bg-white border-gray-300 text-gray-900"
             }`}
-            placeholder="어디로 떠나시나요? (예: 도쿄, 뉴욕)"
+            placeholder={t.locationPlaceholder}
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
@@ -152,16 +160,18 @@ export default function GeneratePage() {
               className={isDarkMode ? "text-blue-400" : "text-blue-600"}
             />
             <span
-              className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+              className={`text-sm font-semibold ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              여행 기간
+              {t.daysLabel}
             </span>
           </div>
           <div className="flex items-center justify-between mt-1">
             <button
               type="button"
               onClick={() => setDays(Math.max(0, days - 1))}
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
+              className={`cursor-pointer w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
                 isDarkMode
                   ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
                   : "bg-gray-100 hover:bg-gray-200 text-gray-800"
@@ -170,12 +180,12 @@ export default function GeneratePage() {
               -
             </button>
             <span className="text-base font-semibold">
-              {days === 0 ? "당일치기" : `${days}박 ${days + 1}일`}
+              {days === 0 ? t.dayTrip : t.formatDays(days)}
             </span>
             <button
               type="button"
               onClick={() => setDays(days + 1)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
+              className={`cursor-pointer w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
                 isDarkMode
                   ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
                   : "bg-gray-100 hover:bg-gray-200 text-gray-800"
@@ -199,9 +209,11 @@ export default function GeneratePage() {
               className={isDarkMode ? "text-blue-400" : "text-blue-600"}
             />
             <span
-              className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+              className={`text-sm font-semibold ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              나의 MBTI
+              {t.mbtiLabel}
             </span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
@@ -212,7 +224,7 @@ export default function GeneratePage() {
                   key={item}
                   type="button"
                   onClick={() => setMbti(item)}
-                  className={`px-4 py-2 rounded-full border text-sm font-medium whitespace-nowrap transition-all ${
+                  className={`cursor-pointer px-4 py-2 rounded-full border text-sm font-medium whitespace-nowrap transition-all ${
                     isSelected
                       ? isDarkMode
                         ? "bg-blue-900/60 border-blue-500 text-blue-400"
@@ -242,17 +254,21 @@ export default function GeneratePage() {
               className={isDarkMode ? "text-blue-400" : "text-blue-600"}
             />
             <span
-              className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+              className={`text-sm font-semibold ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              어떤 여행을 원하시나요? (중복 가능)
+              {t.preferenceTitle}
             </span>
           </div>
 
           <div>
             <p
-              className={`text-xs font-semibold mb-2 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+              className={`text-xs font-semibold mb-2 ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
             >
-              여행 스타일
+              {t.tripStyleLabel}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {TRIP_STYLE_TAGS.map((tag) => {
@@ -265,7 +281,7 @@ export default function GeneratePage() {
                       toggleTag(tag);
                       setTripStyle(tag);
                     }}
-                    className={`text-sm px-3 py-2 rounded-lg font-medium border transition-all ${
+                    className={`cursor-pointer text-sm px-3 py-2 rounded-lg font-medium border transition-all ${
                       isSelected
                         ? isDarkMode
                           ? "bg-blue-900/60 border-blue-500 text-blue-400"
@@ -275,7 +291,7 @@ export default function GeneratePage() {
                           : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
                     }`}
                   >
-                    {tag}
+                    {TRIP_STYLE_TRANSLATIONS[tag][locale]}
                   </button>
                 );
               })}
@@ -284,9 +300,11 @@ export default function GeneratePage() {
 
           <div>
             <p
-              className={`text-xs font-semibold mb-2 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+              className={`text-xs font-semibold mb-2 ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
             >
-              식당 성향
+              {t.tendencyLabel}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {TENDENCY_TAGS.map((tag) => {
@@ -299,7 +317,7 @@ export default function GeneratePage() {
                       toggleTag(tag);
                       setTendency(tag);
                     }}
-                    className={`text-sm px-3 py-2 rounded-lg font-medium border transition-all ${
+                    className={`cursor-pointer text-sm px-3 py-2 rounded-lg font-medium border transition-all ${
                       isSelected
                         ? isDarkMode
                           ? "bg-blue-900/60 border-blue-500 text-blue-400"
@@ -309,7 +327,7 @@ export default function GeneratePage() {
                           : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
                     }`}
                   >
-                    {tag}
+                    {TENDENCY_TRANSLATIONS[tag][locale]}
                   </button>
                 );
               })}
@@ -317,7 +335,9 @@ export default function GeneratePage() {
           </div>
 
           <div
-            className={`border-t my-4 ${isDarkMode ? "border-gray-700" : "border-gray-100"}`}
+            className={`border-t my-4 ${
+              isDarkMode ? "border-gray-700" : "border-gray-100"
+            }`}
           />
 
           <div className="flex items-center gap-1.5 mb-2">
@@ -326,9 +346,11 @@ export default function GeneratePage() {
               className={isDarkMode ? "text-blue-400" : "text-blue-600"}
             />
             <span
-              className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+              className={`text-sm font-semibold ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              나만의 특별 요청사항 (선택)
+              {t.customRequestLabel}
             </span>
           </div>
           <textarea
@@ -337,7 +359,7 @@ export default function GeneratePage() {
                 ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500"
                 : "bg-white border-gray-300 text-gray-900"
             }`}
-            placeholder="예: 교통이 편한 곳 위주로 관광 코스를 짜주세요."
+            placeholder={t.customRequestPlaceholder}
             value={asking}
             onChange={(e) => setAsking(e.target.value)}
           />
@@ -356,9 +378,11 @@ export default function GeneratePage() {
               className={isDarkMode ? "text-blue-400" : "text-blue-600"}
             />
             <span
-              className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+              className={`text-sm font-semibold ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              누구와 함께하나요?
+              {t.companionLabel}
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -369,7 +393,7 @@ export default function GeneratePage() {
                   key={item}
                   type="button"
                   onClick={() => setCompanion(item)}
-                  className={`py-2.5 rounded-xl border text-sm font-medium text-center transition-all ${
+                  className={`cursor-pointer py-2.5 rounded-xl border text-sm font-medium text-center transition-all ${
                     isSelected
                       ? isDarkMode
                         ? "bg-blue-900/60 border-blue-500 text-blue-400"
@@ -379,7 +403,7 @@ export default function GeneratePage() {
                         : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  {item}
+                  {COMPANION_LABELS[locale][item]}
                 </button>
               );
             })}
@@ -399,9 +423,11 @@ export default function GeneratePage() {
               className={isDarkMode ? "text-blue-400" : "text-blue-600"}
             />
             <span
-              className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+              className={`text-sm font-semibold ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
-              주요 이동 수단
+              {t.transportLabel}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -412,7 +438,7 @@ export default function GeneratePage() {
                   key={item}
                   type="button"
                   onClick={() => setTransportation(item)}
-                  className={`py-2.5 rounded-xl border text-sm font-medium text-center transition-all ${
+                  className={`cursor-pointer py-2.5 rounded-xl border text-sm font-medium text-center transition-all ${
                     isSelected
                       ? isDarkMode
                         ? "bg-blue-900/60 border-blue-500 text-blue-400"
@@ -422,7 +448,7 @@ export default function GeneratePage() {
                         : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  {item}
+                  {TRANSPORT_LABELS[locale][item]}
                 </button>
               );
             })}
@@ -443,9 +469,11 @@ export default function GeneratePage() {
                 className={isDarkMode ? "text-blue-400" : "text-blue-600"}
               />
               <span
-                className={`text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+                className={`text-sm font-semibold ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
               >
-                여행 일정 페이스
+                {t.paceLabel}
               </span>
             </div>
             <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
@@ -464,8 +492,8 @@ export default function GeneratePage() {
             }`}
           />
           <div className="flex justify-between text-[11px] text-gray-400 mt-1">
-            <span>1 (여유)</span>
-            <span>10 (빡빡)</span>
+            <span>{t.paceRelaxed}</span>
+            <span>{t.paceBusy}</span>
           </div>
         </div>
 
@@ -482,11 +510,11 @@ export default function GeneratePage() {
         >
           {isPending ? (
             <>
-              <span>여행 일정 생성 중</span>
+              <span>{t.submitting}</span>
               <Loader2 className="w-4 h-4 animate-spin" />
             </>
           ) : (
-            <span>여행 일정 생성하기 🤖</span>
+            <span>{t.submitButton}</span>
           )}
         </button>
       </form>

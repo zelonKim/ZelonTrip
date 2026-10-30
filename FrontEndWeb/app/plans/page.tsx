@@ -5,10 +5,12 @@ import { MapPin, Compass, ArrowRight, CalendarDays, Inbox } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { getTripList } from "@/api/trip/getTripList";
 import { TripListElement } from "@/types/TripList";
+import { usePlansLanguage } from "@/hooks/languages/usePlansLanguage";
 
 export default function PlansPage() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const { t } = usePlansLanguage(); 
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["tripList"],
@@ -28,9 +30,11 @@ export default function PlansPage() {
       >
         <div className="w-9 h-9 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
         <p
-          className={`text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+          className={`text-sm font-medium ${
+            isDarkMode ? "text-gray-400" : "text-gray-500"
+          }`}
         >
-          나의 여행 일정들을 불러오는 중...
+          {t.loading}
         </p>
       </div>
     );
@@ -44,20 +48,20 @@ export default function PlansPage() {
         }`}
       >
         <h2 className="text-base font-bold text-red-500 mb-1">
-          일정을 불러오지 못했습니다. 😭
+          {t.errorTitle}
         </h2>
         <p
-          className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+          className={`text-xs ${
+            isDarkMode ? "text-gray-400" : "text-gray-500"
+          }`}
         >
-          {error?.message || "알 수 없는 에러가 발생했습니다."}
+          {error?.message || t.defaultError}
         </p>
       </div>
     );
   }
 
   const plans = data?.trips || [];
-
-  ///////////////////////////////////////////////////////////////////////////////
 
   return (
     <div
@@ -67,13 +71,17 @@ export default function PlansPage() {
     >
       <div className="max-w-5xl mx-auto pt-10 px-4">
         <header
-          className={`mb-3 border-b pb-4 ${isDarkMode ? "border-gray-800" : "border-b-transparent"}`}
+          className={`mb-3 border-b pb-4 ${
+            isDarkMode ? "border-gray-800" : "border-b-transparent"
+          }`}
         >
-          <h1 className="text-2xl font-bold mb-1.5">나의 여행 일정 🗓️</h1>
+          <h1 className="text-2xl font-bold mb-1.5">{t.headerTitle}</h1>
           <p
-            className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"} leading-relaxed`}
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-500"
+            } leading-relaxed`}
           >
-            AI가 생성한 맞춤형 여행 일정들이에요.
+            {t.headerDesc}
           </p>
         </header>
 
@@ -84,14 +92,18 @@ export default function PlansPage() {
               className={isDarkMode ? "text-gray-600" : "text-gray-400"}
             />
             <h3
-              className={`text-sm font-semibold mt-2 ${isDarkMode ? "text-gray-300" : "text-gray-800"}`}
+              className={`text-sm font-semibold mt-2 ${
+                isDarkMode ? "text-gray-300" : "text-gray-800"
+              }`}
             >
-              아직 생성된 여행 일정이 없습니다.
+              {t.emptyTitle}
             </h3>
             <p
-              className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
+              className={`text-xs ${
+                isDarkMode ? "text-gray-500" : "text-gray-400"
+              }`}
             >
-              첫 번째 AI 추천 일정을 생성해 보세요!
+              {t.emptyDesc}
             </p>
           </div>
         ) : (
@@ -120,15 +132,19 @@ export default function PlansPage() {
                     </span>
                   </div>
                   <div
-                    className={`flex items-center gap-1 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
+                    className={`flex items-center gap-1 ${
+                      isDarkMode ? "text-gray-500" : "text-gray-400"
+                    }`}
                   >
                     <CalendarDays size={13} />
                     <span
-                      className={`text-xs font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                      className={`text-xs font-medium ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
                     >
                       {plan.itinerary?.length === 1
-                        ? "당일치기"
-                        : `${plan.itinerary?.length - 1}박 ${plan.itinerary?.length}일`}
+                        ? t.dayTrip
+                        : t.formatDays(plan.itinerary?.length || 1)}
                     </span>
                   </div>
                 </div>
@@ -148,7 +164,9 @@ export default function PlansPage() {
                 >
                   <Compass
                     size={16}
-                    className={`mt-0.5 mr-2 flex-shrink-0 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}
+                    className={`mt-0.5 mr-2 flex-shrink-0 ${
+                      isDarkMode ? "text-gray-500" : "text-gray-500"
+                    }`}
                   />
                   <p
                     className={`text-sm leading-normal line-clamp-3 flex-1 ${
@@ -166,9 +184,7 @@ export default function PlansPage() {
                       : "text-blue-600 hover:text-blue-700"
                   }`}
                 >
-                  <span className="text-xs font-semibold">
-                    일정 자세히 보기
-                  </span>
+                  <span className="text-xs font-semibold">{t.detailView}</span>
                   <ArrowRight size={14} />
                 </div>
               </div>

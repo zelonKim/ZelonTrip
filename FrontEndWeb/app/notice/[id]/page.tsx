@@ -7,11 +7,13 @@ import { ChevronLeft, Loader2, Calendar } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { NoticeDetail } from "@/types/NoticeDetail";
 import { getNoticeDetail } from "@/api/notice/getNoticeDetail";
+import { useNoticeDetailLanguage } from "@/hooks/languages/useNoticeDetailLanguage";
 
 export default function NoticeDetailPage() {
   const router = useRouter();
   const params = useParams();
   const { isDarkMode } = useTheme();
+  const { t } = useNoticeDetailLanguage();
 
   const noticeId = params?.id;
 
@@ -35,9 +37,11 @@ export default function NoticeDetailPage() {
       >
         <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
         <p
-          className={`mt-4 text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+          className={`mt-4 text-sm font-medium ${
+            isDarkMode ? "text-gray-400" : "text-gray-500"
+          }`}
         >
-          공지사항을 읽어오는 중입니다...
+          {t.loading}
         </p>
       </div>
     );
@@ -51,22 +55,20 @@ export default function NoticeDetailPage() {
         }`}
       >
         <p className="text-red-500 font-medium text-base mb-4 whitespace-pre-line">
-          공지사항을 불러오지 못했습니다.{"\n"}
-          {error instanceof Error
-            ? error.message
-            : "존재하지 않는 공지사항입니다."}
+          {t.errorMsg}
+          {"\n"}
+          {error instanceof Error ? error.message : t.defaultError}
         </p>
         <button
+          type="button"
           onClick={() => router.push("/notice")}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm"
+          className="cursor-pointer px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm"
         >
-          목록으로
+          {t.backButton}
         </button>
       </div>
     );
   }
-
-  ////////////////////////////////////////////////////////////////////////
 
   return (
     <div
@@ -82,19 +84,20 @@ export default function NoticeDetailPage() {
         }`}
       >
         <button
+          type="button"
           onClick={() => router.push("/notice")}
-          className={`w-10 h-10 flex items-center justify-start transition-colors ${
+          className={`cursor-pointer w-10 h-10 flex items-center justify-start transition-colors ${
             isDarkMode
               ? "text-gray-200 hover:text-gray-400"
               : "text-gray-900 hover:text-gray-600"
           }`}
-          title="공지사항 목록으로 이동"
+          title={t.backTitle}
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
 
         <h1 className="text-xl font-bold text-center flex-1 pr-10">
-          공지사항 상세
+          {t.headerTitle}
         </h1>
       </header>
 
@@ -109,7 +112,7 @@ export default function NoticeDetailPage() {
                     : "text-red-500 bg-red-50"
                 }`}
               >
-                중요
+                {t.importantBadge}
               </span>
             )}
 
@@ -128,13 +131,10 @@ export default function NoticeDetailPage() {
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>
-                {new Date(notice.created_at).toLocaleDateString("ko-KR", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {new Date(notice.created_at).toLocaleDateString(
+                  t.dateFormat,
+                  t.dateOptions,
+                )}
               </span>
             </div>
           </div>

@@ -1,13 +1,16 @@
 "use client";
+
 import React, { useState } from "react";
 import { Loader2, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "@/context/ThemeContext";
 import { useLogin } from "@/hooks/useLogin";
 import { AppDownloadModal } from "@/component/AppDownloadModal";
+import { useLoginLanguage } from "@/hooks/languages/useLoginLanguage";
 
 export default function LoginPage() {
   const { isDarkMode } = useTheme();
+  const { t } = useLoginLanguage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,17 +21,15 @@ export default function LoginPage() {
   const handleLogin = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email || !password) {
-      alert("이메일과 비밀번호를 모두 입력해주세요.");
+      alert(t.alertInputBoth);
       return;
     }
     loginMutation({ email, password });
   };
 
-  /////////////////////////////////////////////////////////////////
-
   return (
     <div
-      className={` relative min-h-screen w-full flex flex-col justify-center items-center px-6 py-12 transition-colors duration-300 ${
+      className={`relative min-h-screen w-full flex flex-col justify-center items-center px-6 py-12 transition-colors duration-300 ${
         isDarkMode ? "bg-gray-900" : "bg-sky-50"
       }`}
     >
@@ -41,7 +42,8 @@ export default function LoginPage() {
             : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 shadow-gray-100"
         }`}
       >
-        <Smartphone className="w-3.5 h-3.5  text-blue-500" />앱 다운로드
+        <Smartphone className="w-3.5 h-3.5 text-blue-500" />
+        <span>{t.appDownload}</span>
       </button>
 
       <div className="w-full max-w-sm space-y-8">
@@ -54,9 +56,11 @@ export default function LoginPage() {
             ZelonTrip 🏝️
           </h1>
           <p
-            className={`text-[15px] font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"}`}
+            className={`text-[15px] font-medium ${
+              isDarkMode ? "text-gray-300" : "text-gray-500"
+            }`}
           >
-            내가 원하는 맞춤 AI 여행 플래너
+            {t.subtitle}
           </p>
         </div>
 
@@ -64,13 +68,15 @@ export default function LoginPage() {
           <div className="space-y-5">
             <div className="flex flex-col space-y-2">
               <label
-                className={`text-sm font-semibold pl-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+                className={`text-sm font-semibold pl-0.5 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
               >
-                이메일
+                {t.emailLabel}
               </label>
               <input
                 type="email"
-                placeholder="이메일을 입력해주세요"
+                placeholder={t.emailPlaceholder}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isPending}
@@ -85,13 +91,15 @@ export default function LoginPage() {
 
             <div className="flex flex-col space-y-2">
               <label
-                className={`text-sm font-semibold pl-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+                className={`text-sm font-semibold pl-0.5 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
               >
-                비밀번호
+                {t.passwordLabel}
               </label>
               <input
                 type="password"
-                placeholder="비밀번호를 입력해주세요"
+                placeholder={t.passwordPlaceholder}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isPending}
@@ -120,26 +128,30 @@ export default function LoginPage() {
           >
             {isPending ? (
               <div className="flex items-center gap-2">
-                <span>로그인 중</span>
+                <span>{t.loggingIn}</span>
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
               </div>
             ) : (
-              <span>로그인하기</span>
+              <span>{t.loginButton}</span>
             )}
           </button>
         </form>
 
         <div className="flex items-center justify-center space-x-1.5 text-sm font-medium">
           <span className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-            아직 계정이 없으신가요?
+            {t.noAccount}
           </span>
           <Link
             href="/signup"
             className={`font-semibold hover:underline hover:font-bold transition-colors ${
               isPending ? "pointer-events-none opacity-50" : ""
-            } ${isDarkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-700"}`}
+            } ${
+              isDarkMode
+                ? "text-blue-400 hover:text-blue-300"
+                : "text-blue-600 hover:text-blue-700"
+            }`}
           >
-            회원가입
+            {t.signup}
           </Link>
         </div>
       </div>

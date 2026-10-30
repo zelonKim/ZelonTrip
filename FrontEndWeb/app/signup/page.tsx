@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSignup } from "@/hooks/useSignup";
 import { useTheme } from "@/context/ThemeContext";
+import { useSignupLanguage } from "@/hooks/languages/useSignupLanguage";
 
 export default function SignupPage() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const { t } = useSignupLanguage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,14 +20,12 @@ export default function SignupPage() {
   const handleSignup = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!email || !password || !passwordConfirm)
-      return alert("모든 정보를 입력해주세요.");
+    if (!email || !password || !passwordConfirm) return alert(t.alertInputAll);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      return alert("올바른 이메일 형식이 아닙니다.");
+      return alert(t.alertInvalidEmail);
     if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/.test(password))
-      return alert("비밀번호는 영문+숫자 8자 이상입니다.");
-    if (password !== passwordConfirm)
-      return alert("비밀번호가 일치하지 않습니다.");
+      return alert(t.alertInvalidPassword);
+    if (password !== passwordConfirm) return alert(t.alertPasswordMismatch);
 
     signupMutation({
       username: email,
@@ -33,8 +33,6 @@ export default function SignupPage() {
       password_confirm: passwordConfirm,
     });
   };
-
-  ////////////////////////////////////////////////////////
 
   return (
     <div
@@ -49,14 +47,14 @@ export default function SignupPage() {
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            AI와 함께 떠나요! ✈️
+            {t.title}
           </h1>
           <p
             className={`text-md ${
               isDarkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >
-            ZelonTrip과 함께 여행을 시작해볼까요?
+            {t.subtitle}
           </p>
         </div>
 
@@ -67,16 +65,16 @@ export default function SignupPage() {
                 isDarkMode ? "text-gray-300" : "text-gray-700"
               }`}
             >
-              이메일
+              {t.emailLabel}
             </label>
             <input
               type="email"
               className={`w-full text-[15px] rounded-xl p-3 border outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700 text-white placeholder-gray-500"
-                  : "bg-gray-100 border-gray-200 text-gray-900 placeholder-gray-400"
+                  : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"
               }`}
-              placeholder="example@email.com"
+              placeholder={t.emailPlaceholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isSignupPending}
@@ -89,16 +87,16 @@ export default function SignupPage() {
                 isDarkMode ? "text-gray-300" : "text-gray-700"
               }`}
             >
-              비밀번호
+              {t.passwordLabel}
             </label>
             <input
               type="password"
               className={`w-full text-[15px] rounded-xl p-3 border outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700 text-white placeholder-gray-500"
-                  : "bg-gray-100 border-gray-200 text-gray-900 placeholder-gray-400"
+                  : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"
               }`}
-              placeholder="영문+숫자 조합 8자 이상"
+              placeholder={t.passwordPlaceholder}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isSignupPending}
@@ -111,16 +109,16 @@ export default function SignupPage() {
                 isDarkMode ? "text-gray-300" : "text-gray-700"
               }`}
             >
-              비밀번호 확인
+              {t.passwordConfirmLabel}
             </label>
             <input
               type="password"
               className={`w-full text-[15px] rounded-xl p-3 border outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700 text-white placeholder-gray-500"
-                  : "bg-gray-100 border-gray-200 text-gray-900 placeholder-gray-400"
+                  : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400"
               }`}
-              placeholder="비밀번호를 다시 입력해주세요"
+              placeholder={t.passwordConfirmPlaceholder}
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
               disabled={isSignupPending}
@@ -130,9 +128,9 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={isSignupPending}
-            className="mt-3 w-full rounded-xl bg-blue-600 py-3 text-white font-bold text-md hover:bg-blue-700 disabled:bg-gray-400 transition"
+            className="cursor-pointer mt-3 w-full rounded-xl bg-blue-600 py-3 text-white font-bold text-md hover:bg-blue-700 disabled:bg-gray-400 transition"
           >
-            {isSignupPending ? "가입 중..." : "시작하기"}
+            {isSignupPending ? t.signingUp : t.signupButton}
           </button>
         </form>
 
@@ -141,12 +139,12 @@ export default function SignupPage() {
             isDarkMode ? "text-gray-400" : "text-gray-500"
           }`}
         >
-          이미 계정이 있으신가요?{" "}
+          {t.alreadyHaveAccount}{" "}
           <button
             onClick={() => router.push("/login")}
             className="cursor-pointer text-blue-500 font-semibold hover:underline hover:font-bold"
           >
-            로그인
+            {t.login}
           </button>
         </p>
       </div>

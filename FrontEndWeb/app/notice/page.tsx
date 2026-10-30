@@ -6,10 +6,12 @@ import { ChevronLeft, Loader2, RotateCw, Megaphone } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { Notice } from "@/types/Notice";
 import { getNotices } from "@/api/notice/getNotices";
+import { useNoticePageLanguage } from "@/hooks/languages/useNoticePageLanguage";
 
 export default function NoticePage() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const { t, locale } = useNoticePageLanguage(); 
 
   const {
     data: notices,
@@ -36,9 +38,11 @@ export default function NoticePage() {
       >
         <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
         <p
-          className={`mt-4 text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+          className={`mt-4 text-sm font-medium ${
+            isDarkMode ? "text-gray-400" : "text-gray-500"
+          }`}
         >
-          공지사항을 불러오는 중입니다...
+          {t.loading}
         </p>
       </div>
     );
@@ -52,20 +56,19 @@ export default function NoticePage() {
         }`}
       >
         <p className="text-red-500 font-medium text-base mb-4 whitespace-pre-line">
-          공지사항을 불러오지 못했습니다.{"\n"}
-          {error instanceof Error ? error.message : "다시 시도해 주세요."}
+          {t.errorMsg}
+          {"\n"}
+          {error instanceof Error ? error.message : t.defaultError}
         </p>
         <button
           onClick={() => refetch()}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm"
+          className="cursor-pointer px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm"
         >
-          다시 시도
+          {t.retry}
         </button>
       </div>
     );
   }
-
-  ////////////////////////////////////////////////////////////////////////////
 
   return (
     <div
@@ -82,32 +85,35 @@ export default function NoticePage() {
       >
         <button
           onClick={() => router.push("/mypage")}
-          className={`w-10 h-10 flex items-center justify-start transition-colors ${
+          className={`cursor-pointer w-10 h-10 flex items-center justify-start transition-colors ${
             isDarkMode
               ? "text-gray-200 hover:text-gray-400"
               : "text-gray-900 hover:text-gray-600"
           }`}
-          title="마이페이지로 이동"
+          title={t.backTitle}
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
 
         <h1 className="text-xl font-bold text-center flex-1 pr-2">
-          공지사항 📢
+          {t.headerTitle}
         </h1>
 
         <button
+          type="button"
           onClick={handleRefresh}
           disabled={isRefetching}
-          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-colors shadow-sm disabled:opacity-60 ${
+          className={`cursor-pointer w-8 h-8 rounded-full border flex items-center justify-center transition-colors shadow-sm disabled:opacity-60 ${
             isDarkMode
               ? "bg-gray-800 border-gray-600 hover:bg-gray-600"
               : "bg-white border-gray-200 hover:bg-gray-100"
           }`}
-          title="새로고침"
+          title={t.refreshTitle}
         >
           <RotateCw
-            className={`w-4 h-4 text-gray-500 ${isRefetching ? "animate-spin" : ""}`}
+            className={`w-4 h-4 text-gray-500 ${
+              isRefetching ? "animate-spin" : ""
+            }`}
           />
         </button>
       </header>
@@ -122,21 +128,19 @@ export default function NoticePage() {
                     onClick={() => router.push(`/notice/${notice.id}`)}
                     className={`w-full text-left block p-5 rounded-2xl border border-b-[3px] shadow-sm hover:scale-[1.01] transition-all cursor-pointer ${
                       isDarkMode
-                        ? "bg-gray-800 border-gray-700 border-b-gray-700 hover:border-gray-600 "
+                        ? "bg-gray-800 border-gray-700 border-b-gray-700 hover:border-gray-600"
                         : "bg-white border-gray-200 border-b-gray-300 hover:border-gray-300"
                     }`}
                   >
                     <div className="flex justify-end mb-1">
                       <span
-                        className={`text-xs font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
+                        className={`text-xs font-medium ${
+                          isDarkMode ? "text-gray-500" : "text-gray-400"
+                        }`}
                       >
                         {new Date(notice.created_at).toLocaleDateString(
-                          "ko-KR",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          },
+                          t.dateFormat,
+                          t.dateOptions,
                         )}
                       </span>
                     </div>
@@ -168,9 +172,11 @@ export default function NoticePage() {
                 }
               />
               <p
-                className={`text-sm font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
+                className={`text-sm font-medium ${
+                  isDarkMode ? "text-gray-500" : "text-gray-400"
+                }`}
               >
-                등록된 공지사항이 없습니다.
+                {t.emptyNotice}
               </p>
             </div>
           )}

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { AppDownloadModalProps } from "@/types/AppDownloadModalProps";
 import { AndroidDownloadInfo } from "./AndroidDownloadInfo";
 import { IosDownloadInfo } from "./IosDownloadInfo";
+import { useAppDownloadLanguage } from "@/hooks/languages/useAppDownloadLanguage"; // 👈 다국어 훅 임포트
 
 type TabType = "android" | "ios";
 
@@ -14,6 +15,7 @@ export const AppDownloadModal = ({
   onClose,
 }: AppDownloadModalProps) => {
   const [activeTab, setActiveTab] = useState<TabType>("android");
+  const { t } = useAppDownloadLanguage(); 
 
   if (!isOpen) return null;
 
@@ -41,15 +43,13 @@ export const AppDownloadModal = ({
         </button>
 
         <div className="text-center mt-2 mb-4">
-          <h3 className="text-xl font-black tracking-tight mb-1">
-            ZelonTrip 모바일 앱 🏝️
-          </h3>
+          <h3 className="text-xl font-black tracking-tight mb-1">{t.title}</h3>
           <p
             className={`text-xs font-medium ${
               isDarkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >
-            원하시는 모바일 운영체제를 선택해 주세요
+            {t.subtitle}
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export const AppDownloadModal = ({
                 : "cursor-pointer text-gray-400 hover:text-gray-500"
             }`}
           >
-            Android
+            {t.androidTab}
           </button>
           <button
             type="button"
@@ -82,7 +82,7 @@ export const AppDownloadModal = ({
                 : "cursor-pointer text-gray-400 hover:text-gray-500"
             }`}
           >
-            iOS (iPhone)
+            {t.iosTab}
           </button>
         </div>
 
@@ -97,7 +97,7 @@ export const AppDownloadModal = ({
           onClick={onClose}
           className="cursor-pointer w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mt-5 transition-all active:scale-[0.99]"
         >
-          확인
+          {t.confirmButton}
         </button>
       </div>
     </div>

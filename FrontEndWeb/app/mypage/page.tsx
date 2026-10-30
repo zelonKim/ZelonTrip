@@ -22,6 +22,7 @@ import { useDeactivateUser } from "@/hooks/useDeactivateUser";
 import { useUpdateNickname } from "@/hooks/useUpdateNickname";
 import { NicknameModal } from "@/component/NicknameModal";
 import { FeedbackModal } from "@/component/FeedbackModal";
+import { useMyPageLanguage } from "@/hooks/languages/useMyPageLanguage";
 
 export default function MyPagePage() {
   const router = useRouter();
@@ -31,14 +32,13 @@ export default function MyPagePage() {
   const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
 
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const { t } = useMyPageLanguage(); 
 
   const handleToggleDarkMode = () => {
     const nextMode = !isDarkMode;
     toggleDarkMode();
     localStorage.setItem("zelontrip_theme", nextMode ? "dark" : "light");
   };
-
-  //////////////////////////////////////////////////////////////////
 
   const openNicknameModal = () => {
     setIsModalVisible(true);
@@ -57,8 +57,6 @@ export default function MyPagePage() {
     saveNicknameMutation(newNickname);
   };
 
-  //////////////////////////////////////////////////////////////////
-
   const { mutate: feedbackMutation, isPending: isFeedbackPending } =
     useSendFeedback({
       onSuccess: () => {
@@ -70,42 +68,28 @@ export default function MyPagePage() {
     feedbackMutation(content);
   };
 
-  //////////////////////////////////////////////////////////////////
-
   const { mutate: deactivateMutation, isPending: isDeactivatePending } =
     useDeactivateUser();
 
   const handleDeactivate = () => {
-    if (
-      window.confirm(
-        "회원 탈퇴\n\n정말 탈퇴하시겠습니까?\n탈퇴 시 서비스 이용이 제한됩니다.",
-      )
-    )
-      deactivateMutation();
+    if (window.confirm(t.deactivateConfirm)) deactivateMutation();
   };
 
-  //////////////////////////////////////////////////////////////////
-
   const handleLogout = () => {
-    if (window.confirm("정말 로그아웃 하시겠습니까?")) {
+    if (window.confirm(t.logoutConfirm)) {
       try {
         removeSecureItem("userToken");
         queryClient.clear();
         router.replace("/login");
       } catch (error) {
         console.log(error);
-        alert("로그아웃 처리 중 오류가 발생했습니다.");
+        alert(t.logoutError);
       }
     }
   };
 
-  //////////////////////////////////////////////////////////////////
-
   const { data: profileData, isPending: isProfilePending } = useUserProfile();
-
   const { data: statsData, isPending: isStatsPending } = useUserTripStats();
-
-  ////////////////////////////////////////////////////////////////////
 
   return (
     <div
@@ -115,9 +99,11 @@ export default function MyPagePage() {
     >
       <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6">
         <header
-          className={`pb-4 mb-6 border-b ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}
+          className={`pb-4 mb-6 border-b ${
+            isDarkMode ? "border-gray-800" : "border-gray-200"
+          }`}
         >
-          <h1 className="text-2xl font-bold tracking-tight">마이페이지</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.headerTitle}</h1>
         </header>
 
         <main className="space-y-5">
@@ -150,30 +136,34 @@ export default function MyPagePage() {
                           {profileData.nickname}
                         </span>
                         <button
+                          type="button"
                           onClick={openNicknameModal}
-                          className={`px-2 py-0.5 rounded text-xs font-semibold transition-colors ${
+                          className={`cursor-pointer px-2 py-0.5 rounded text-xs font-semibold transition-colors ${
                             isDarkMode
                               ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
                               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                           }`}
                         >
-                          닉네임 수정하기
+                          {t.editNickname}
                         </button>
                       </div>
                     ) : (
                       <button
+                        type="button"
                         onClick={openNicknameModal}
-                        className={`px-3 py-1.5 rounded-lg border text-sm font-semibold self-start mb-1 transition-colors ${
+                        className={`cursor-pointer px-3 py-1.5 rounded-lg border text-sm font-semibold self-start mb-1 transition-colors ${
                           isDarkMode
                             ? "text-blue-400 bg-blue-950/40 border-blue-900 hover:bg-blue-900/30"
                             : "text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100"
                         }`}
                       >
-                        닉네임 만들기 ✏️
+                        {t.createNickname}
                       </button>
                     )}
                     <span
-                      className={`text-sm font-medium truncate ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                      className={`text-sm font-medium truncate ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
                     >
                       {profileData?.username}
                     </span>
@@ -183,15 +173,19 @@ export default function MyPagePage() {
             </div>
 
             <hr
-              className={`my-4 ${isDarkMode ? "border-gray-700" : "border-gray-100"}`}
+              className={`my-4 ${
+                isDarkMode ? "border-gray-700" : "border-gray-100"
+              }`}
             />
 
             <div className="w-full">
               <div
-                className={`flex items-center space-x-1.5 mb-3 text-sm font-semibold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                className={`flex items-center space-x-1.5 mb-3 text-sm font-semibold ${
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                }`}
               >
                 <Award className="w-4 h-4" />
-                <span>취득한 뱃지</span>
+                <span>{t.badgeTitle}</span>
               </div>
 
               <div className="flex flex-wrap gap-2.5">
@@ -203,12 +197,12 @@ export default function MyPagePage() {
                   }`}
                 >
                   {isStatsPending
-                    ? "⏳ 분석 중..."
+                    ? t.analyzing
                     : (statsData?.total_location ?? 0) >= 5
-                      ? "✈️ 프로 여행러"
+                      ? t.badgePro
                       : (statsData?.total_location ?? 0) >= 2
-                        ? "👟 중급 여행러"
-                        : "🐣 초보 여행러"}
+                        ? t.badgeIntermediate
+                        : t.badgeBeginner}
                 </div>
 
                 {(statsData?.total_days ?? 0) > 0 && (
@@ -219,7 +213,7 @@ export default function MyPagePage() {
                         : "border-blue-100 bg-blue-50 text-blue-600"
                     }`}
                   >
-                    ⏱️ 누적 {statsData?.total_days}일째 여행 중
+                    {t.accumulatedDays(statsData?.total_days ?? 0)}
                   </div>
                 )}
               </div>
@@ -235,25 +229,23 @@ export default function MyPagePage() {
           >
             <div className="flex flex-col flex-1">
               <div
-                className={`flex items-center space-x-1.5 mb-1 text-sm font-semibold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                className={`flex items-center space-x-1.5 mb-1 text-sm font-semibold ${
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                }`}
               >
                 <Footprints className="w-4 h-4" />
-                <span>나의 여행 발자국</span>
+                <span>{t.footprintsTitle}</span>
               </div>
 
               {isStatsPending ? (
                 <Loader2 className="w-4 h-4 animate-spin text-blue-600 mt-2" />
               ) : (
                 <p
-                  className={`text-sm mt-1 leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
+                  className={`text-sm mt-1 leading-relaxed ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
                 >
-                  지금까지 ZelonTrip과 함께{" "}
-                  <span
-                    className={`${isDarkMode ? "text-blue-400" : "text-blue-600"} font-bold`}
-                  >
-                    {statsData?.total_location ?? 0}개
-                  </span>
-                  의 여행지를 탐방했어요!
+                  {t.footprintsDesc(statsData?.total_location ?? 0)}
                 </p>
               )}
             </div>
@@ -261,9 +253,11 @@ export default function MyPagePage() {
 
           <section className="space-y-2">
             <h2
-              className={`text-sm font-semibold pl-0.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+              className={`text-sm font-semibold pl-0.5 ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
             >
-              앱 설정 및 지원
+              {t.settingsTitle}
             </h2>
 
             <div
@@ -274,13 +268,17 @@ export default function MyPagePage() {
               }`}
             >
               <div
-                className={`w-full flex items-center justify-between p-4 transition-colors ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
+                className={`w-full flex items-center justify-between p-4 transition-colors ${
+                  isDarkMode ? "bg-gray-800" : "bg-white"
+                }`}
               >
                 <div className="flex items-center space-x-3">
                   <Moon
-                    className={`w-5 h-5 ${isDarkMode ? "text-blue-400" : "text-gray-500"}`}
+                    className={`w-5 h-5 ${
+                      isDarkMode ? "text-blue-400" : "text-gray-500"
+                    }`}
                   />
-                  <span className="text-[15px] font-medium">다크모드</span>
+                  <span className="text-[15px] font-medium">{t.darkMode}</span>
                 </div>
 
                 <button
@@ -291,16 +289,17 @@ export default function MyPagePage() {
                   }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out 
-        ${isDarkMode ? "translate-x-5" : "translate-x-0"}
-      `}
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isDarkMode ? "translate-x-5" : "translate-x-0"
+                    }`}
                   />
                 </button>
               </div>
 
               <button
+                type="button"
                 onClick={() => router.push("/notice")}
-                className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
+                className={`cursor-pointer w-full flex items-center justify-between p-4 text-left transition-colors ${
                   isDarkMode
                     ? "bg-gray-800 hover:bg-gray-700/60"
                     : "bg-white hover:bg-gray-50"
@@ -308,16 +307,19 @@ export default function MyPagePage() {
               >
                 <div className="flex items-center space-x-3">
                   <Megaphone
-                    className={`w-5 h-5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                    className={`w-5 h-5 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
                   />
-                  <span className="text-[15px] font-medium">공지사항</span>
+                  <span className="text-[15px] font-medium">{t.notice}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </button>
 
               <button
+                type="button"
                 onClick={() => setIsFeedbackModalVisible(true)}
-                className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
+                className={`cursor-pointer w-full flex items-center justify-between p-4 text-left transition-colors ${
                   isDarkMode
                     ? "bg-gray-800 hover:bg-gray-700/60"
                     : "bg-white hover:bg-gray-50"
@@ -325,9 +327,11 @@ export default function MyPagePage() {
               >
                 <div className="flex items-center space-x-3">
                   <MessageSquare
-                    className={`w-5 h-5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
+                    className={`w-5 h-5 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
                   />
-                  <span className="text-[15px] font-medium">피드백 보내기</span>
+                  <span className="text-[15px] font-medium">{t.feedback}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </button>
@@ -336,29 +340,43 @@ export default function MyPagePage() {
 
           <div className="flex items-center justify-center space-x-4 pt-2">
             <button
+              type="button"
               onClick={handleLogout}
-              className={`text-sm font-medium transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
+              className={`cursor-pointer text-sm font-medium transition-colors ${
+                isDarkMode
+                  ? "text-gray-500 hover:text-gray-300"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
             >
-              로그아웃
+              {t.logout}
             </button>
             <span
-              className={`${isDarkMode ? "text-gray-700" : "text-gray-200"} select-none`}
+              className={`${
+                isDarkMode ? "text-gray-700" : "text-gray-200"
+              } select-none`}
             >
               |
             </span>
             <button
+              type="button"
               onClick={handleDeactivate}
               disabled={isDeactivatePending}
-              className={`text-sm font-medium transition-colors disabled:opacity-50 ${isDarkMode ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+              className={`cursor-pointer text-sm font-medium transition-colors disabled:opacity-50 ${
+                isDarkMode
+                  ? "text-gray-500 hover:text-red-400"
+                  : "text-gray-400 hover:text-red-500"
+              }`}
             >
-              회원 탈퇴
+              {t.deactivate}
             </button>
           </div>
 
           <p
-            className={`text-xs text-center font-medium pt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}
+            className={`text-xs text-center font-medium pt-1 ${
+              isDarkMode ? "text-gray-600" : "text-gray-400"
+            }`}
           >
-            버전 정보 v1.0.0 (최신 버전)
+            {t.version}
           </p>
         </main>
       </div>
